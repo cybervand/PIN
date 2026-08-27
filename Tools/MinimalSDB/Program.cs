@@ -74,7 +74,10 @@ Console.WriteLine($"MinimalSDB: Writing SDB: {output}");
 sdb.Write(output);
 return 0;
 
-partial class Program
+/// <summary>
+/// Provides helper methods.
+/// </summary>
+internal partial class Program
 {
     [GeneratedRegex(@">\(""([^""]+)""\)")]
     private static partial Regex TableNameRegex();
