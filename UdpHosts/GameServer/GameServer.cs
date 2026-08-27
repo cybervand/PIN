@@ -67,8 +67,11 @@ internal class GameServer : PacketServer
 
     protected override void HandlePacket(Packet packet, CancellationToken ct)
     {
-        Logger.Verbose("[GAME] {RemoteEndpoint} sent {PacketLength} bytes.", packet.RemoteEndpoint, packet.PacketData.Length);
-        Logger.Verbose(">  {PacketData}", BitConverter.ToString(packet.PacketData.ToArray()).Replace("-", " "));
+        if (Logger.IsEnabled(Serilog.Events.LogEventLevel.Verbose))
+        {
+            Logger.Verbose("[GAME] {RemoteEndpoint} sent {PacketLength} bytes.", packet.RemoteEndpoint, packet.PacketData.Length);
+            Logger.Verbose(">  {PacketData}", BitConverter.ToString(packet.PacketData.ToArray()).Replace("-", " "));
+        }
 
         var client = RetrieveClient(packet);
         client.HandlePacket(packet.PacketData[4..], packet);
