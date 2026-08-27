@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
@@ -20,6 +21,9 @@ public abstract class PacketServer : IPacketSender
     protected BufferBlock<Packet?> OutgoingPackets;
     protected CancellationTokenSource Source;
 
+    private readonly ManualResetEventSlim _stopped = new(false);
+    private PosixSignalRegistration _sigterm;
+
     protected PacketServer(ushort port, ILogger logger)
     {
         Logger = logger.ForContext<PacketServer>();
@@ -27,10 +31,8 @@ public abstract class PacketServer : IPacketSender
         ServerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
     }
 
-    public bool IsRunning { get; protected set; }
+    public bool IsRunning { get; private set; }
 
-    // TODO: Move to separate thread? add console/rcon handling here?
-    // FIXME: Move timing to GameServer
     public void Run()
     {
         Source = new CancellationTokenSource();
@@ -38,6 +40,17 @@ public abstract class PacketServer : IPacketSender
 
         IncomingPackets = new BufferBlock<Packet?>();
         OutgoingPackets = new BufferBlock<Packet?>();
+
+        System.Console.CancelKeyPress += OnCancelKeyPress;
+
+        if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+        {
+            _sigterm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
+            {
+                context.Cancel = true;
+                RequestStop();
+            });
+        }
 
         var listenThread = Utils.RunThread(ListenThreadAsync, ct);
         var runThread = Utils.RunThread(ServerRunThreadAsync, ct);
@@ -47,33 +60,32 @@ public abstract class PacketServer : IPacketSender
 
         IsRunning = true;
 
-        while (IsRunning)
-        {
-            // TODO: Handle Command
-            var line = Console.ReadLine();
-            HandleCommand(line);
-        }
+        _stopped.Wait();
+
+        IsRunning = false;
 
         if (!Source.IsCancellationRequested)
         {
             Source.Cancel();
         }
 
+        ServerSocket.Close();
+        _sigterm?.Dispose();
+
         Shutdown(ct);
+    }
+
+    /// <summary>
+    ///     Requests the server to stop. <see cref="Run" /> returns once the shutdown has been triggered.
+    /// </summary>
+    public void RequestStop()
+    {
+        _stopped.Set();
     }
 
     public async Task<bool> SendAsync(Memory<byte> packet, IPEndPoint endPoint)
     {
         return await OutgoingPackets.SendAsync(new Packet(endPoint, packet));
-    }
-
-    protected virtual void HandleCommand(string line)
-    {
-        if (line.Trim().StartsWith("exit"))
-        {
-            IsRunning = false;
-            Source.Cancel();
-        }
     }
 
     protected abstract void HandlePacket(Packet p, CancellationToken ct);
@@ -83,15 +95,28 @@ public abstract class PacketServer : IPacketSender
 
     protected virtual async void ServerRunThreadAsync(CancellationToken ct)
     {
-        Packet? p;
-        while ((p = await IncomingPackets.ReceiveAsync(ct)) != null)
+        try
         {
-            HandlePacket(p.Value, ct);
+            Packet? p;
+            while ((p = await IncomingPackets.ReceiveAsync(ct)) != null)
+            {
+                HandlePacket(p.Value, ct);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutdown
         }
     }
 
     protected virtual void Shutdown(CancellationToken ct)
     {
+    }
+
+    private void OnCancelKeyPress(object sender, ConsoleCancelEventArgs e)
+    {
+        e.Cancel = true;
+        RequestStop();
     }
 
     private async void ListenThreadAsync(CancellationToken ct)
@@ -133,9 +158,16 @@ public abstract class PacketServer : IPacketSender
                     remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
                 }
             }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
             catch (Exception ex)
             {
-                Logger.Error(ex, "Error {0}", "listenThread");
+                if (!ct.IsCancellationRequested)
+                {
+                    Logger.Error(ex, "Error {0}", "listenThread");
+                }
             }
 
             _ = Thread.Yield();
@@ -158,10 +190,17 @@ public abstract class PacketServer : IPacketSender
                 break;
             }
 
-            Packet? packet;
-            while ((packet = await OutgoingPackets.ReceiveAsync(ct)) != null)
+            try
             {
-                _ = ServerSocket.SendTo(packet.Value.PacketData.ToArray(), packet.Value.PacketData.Length, SocketFlags.None, packet.Value.RemoteEndpoint);
+                Packet? packet;
+                while ((packet = await OutgoingPackets.ReceiveAsync(ct)) != null)
+                {
+                    _ = ServerSocket.SendTo(packet.Value.PacketData.ToArray(), packet.Value.PacketData.Length, SocketFlags.None, packet.Value.RemoteEndpoint);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
 
             _ = Thread.Yield();
