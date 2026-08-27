@@ -41,7 +41,7 @@ public abstract class PacketServer : IPacketSender
         IncomingPackets = new BufferBlock<Packet?>();
         OutgoingPackets = new BufferBlock<Packet?>();
 
-        System.Console.CancelKeyPress += OnCancelKeyPress;
+        Console.CancelKeyPress += OnCancelKeyPress;
 
         if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
         {
@@ -151,8 +151,8 @@ public abstract class PacketServer : IPacketSender
                     // Should probably change to ArrayPool<byte>, but can't return a Memory<byte> :(
                     // TODO: Move Endpoint and Memory<byte> management to Packet (constructor + destructor)
                     var buf = new byte[numberOfBytesReceived];
-                    buffer.AsSpan()[..numberOfBytesReceived].ToArray().CopyTo(buf, 0);
-                    _ = await IncomingPackets.SendAsync(new Packet((IPEndPoint)remoteEndPoint, new ReadOnlyMemory<byte>(buf, 0, numberOfBytesReceived), DateTime.Now), ct);
+                    buffer.AsSpan()[..numberOfBytesReceived].CopyTo(buf);
+                    _ = await IncomingPackets.SendAsync(new Packet((IPEndPoint)remoteEndPoint, buf.AsMemory(0, numberOfBytesReceived), DateTime.Now), ct);
 
                     // Not 100% sure this needs to be cleared?
                     remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
