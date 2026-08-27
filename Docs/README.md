@@ -31,7 +31,7 @@ Packets are fetch from the network socket in the `ListenThread` and pushed to a 
 The `ServerRunThread` is responsible to picking the latest packet on the `BufferBlock` and start handling it.
 The `SendThread` reads from a separate `BufferBlock` of outgoing packets and pushes them onto the network socket.
 
-Each connecting client is migrated into a `Shard`, which has its own `RunThread` that triggers a timed network tick, which then causes the queued packets to be sent and pending packets to be proccessed.
+A GameServer hosts exactly one `Shard`. The `Shard` has its own `RunThread` that triggers a timed network tick, which then causes the queued packets to be sent and pending packets to be proccessed. Each connecting client is migrated into the `Shard`.
 
 The GSS protocol has four different channels:
 - Control - Connection and time sync handling

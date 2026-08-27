@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 using GameServer.Controllers;
 using GameServer.GRPC;
 using GameServer.StaticDB;
@@ -18,16 +16,13 @@ namespace GameServer;
 internal class GameServer : PacketServer
 {
     private const double _gameTickRate = 1.0 / 60.0;
-    private const int _minPlayersPerShard = 16;
-    private const int _maxPlayersPerShard = 64;
 
     private readonly ConcurrentDictionary<uint, INetworkPlayer> _clientMap;
-    private readonly ConcurrentDictionary<ulong, IShard> _shards;
 
     private readonly ulong _serverId;
     private readonly GameServerSettings  _settings;
 
-    private byte _nextShardId;
+    private IShard _shard;
     private bool _isReady;
 
     public GameServer(GameServerSettings serverSettings,
@@ -36,9 +31,7 @@ internal class GameServer : PacketServer
         : base(serverSettings.Port, logger)
     {
         _clientMap = new ConcurrentDictionary<uint, INetworkPlayer>();
-        _shards = new ConcurrentDictionary<ulong, IShard>();
 
-        _nextShardId = 1;
         _serverId = GenerateServerId();
 
         _settings = serverSettings;
@@ -57,7 +50,11 @@ internal class GameServer : PacketServer
     {
         DataUtils.Init();
         Factory.Init();
-        NewShard(ct);
+
+        var shardId = _serverId | (1u << 8) | (byte)Enums.GSS.Controllers.GenericShard;
+        _shard = new Shard(_gameTickRate, shardId, _settings, this, Logger);
+
+        _shard.Run(ct);
 
         if (_settings.GrpcChannelAddress != string.Empty)
         {
@@ -68,21 +65,12 @@ internal class GameServer : PacketServer
         Logger.Information("Server is ready to accept connections.");
     }
 
-    protected override async void ServerRunThreadAsync(CancellationToken ct)
-    {
-        Packet? packet;
-        while ((packet = await IncomingPackets.ReceiveAsync(ct)) != null)
-        {
-            HandlePacket(packet.Value, ct);
-        }
-    }
-
     protected override void HandlePacket(Packet packet, CancellationToken ct)
     {
         Logger.Verbose("[GAME] {RemoteEndpoint} sent {PacketLength} bytes.", packet.RemoteEndpoint, packet.PacketData.Length);
         Logger.Verbose(">  {PacketData}", BitConverter.ToString(packet.PacketData.ToArray()).Replace("-", " "));
 
-        var client = RetrieveClient(packet, ct);
+        var client = RetrieveClient(packet);
         client.HandlePacket(packet.PacketData[4..], packet);
     }
 
@@ -97,7 +85,7 @@ internal class GameServer : PacketServer
         return BinaryPrimitives.ReadUInt64LittleEndian(ranSpan);
     }
 
-    private INetworkClient RetrieveClient(Packet packet, CancellationToken ct)
+    private INetworkClient RetrieveClient(Packet packet)
     {
         var socketId = Utils.SimpleFixEndianness(packet.Read<uint>());
         INetworkClient client;
@@ -115,7 +103,7 @@ internal class GameServer : PacketServer
             }
 
             client = _clientMap.AddOrUpdate(socketId, newClient, (_, nc) => nc);
-            _ = GetNextShard(ct).MigrateIn((INetworkPlayer)client);
+            _shard.MigrateIn((INetworkPlayer)client);
         }
         else
         {
@@ -123,29 +111,6 @@ internal class GameServer : PacketServer
         }
 
         return client;
-    }
-
-    private IShard GetNextShard(CancellationToken ct)
-    {
-        foreach (var shard in _shards.Values.OrderBy(s => s.CurrentPlayers))
-        {
-            if (shard.CurrentPlayers < _maxPlayersPerShard)
-            {
-                return shard;
-            }
-        }
-
-        return NewShard(ct);
-    }
-
-    private IShard NewShard(CancellationToken ct)
-    {
-        var id = _serverId | (uint)(_nextShardId++ << 8) | (byte)Enums.GSS.Controllers.GenericShard;
-        var shard = _shards.AddOrUpdate(id, new Shard(_gameTickRate, id, _settings, this, Logger), (_, old) => old);
-
-        shard.Run(ct);
-
-        return shard;
     }
 
     private async Task ListenGrpcAsync(CancellationToken ct)
