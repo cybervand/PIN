@@ -79,4 +79,10 @@ public class GameServerSettings
     ///    Force reload zone from source files, bypassing cache.
     /// </summary>
     public bool ForceReloadZone { get; set; }
+
+    /// <summary>
+    ///    Batch multiple outgoing game messages into a single UDP datagram (up to the MTU budget).
+    ///    Disable if a client fails to parse datagrams containing more than one message.
+    /// </summary>
+    public bool BatchOutgoingPackets { get; set; } = true;
 }

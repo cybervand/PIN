@@ -117,6 +117,18 @@ public class GameServerModule : Module
                 }
             }
 
+            if (ConfigurationManager.AppSettings["BatchOutgoingPackets"] != null)
+            {
+                if (bool.TryParse(ConfigurationManager.AppSettings["BatchOutgoingPackets"], out bool batchOutgoingPackets))
+                {
+                    settings.BatchOutgoingPackets = batchOutgoingPackets;
+                }
+                else
+                {
+                    Log.Error($"Cannot parse BatchOutgoingPackets setting value");
+                }
+            }
+
             return settings;
         })
         .As<GameServerSettings>().SingleInstance();

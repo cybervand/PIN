@@ -42,6 +42,7 @@ public interface IShard : IPacketSender
     PlayerRespawnService PlayerRespawn { get; }
     uint ZoneId { get; }
     ILogger Logger { get; }
+    GameServerSettings Settings { get; }
 
     int CurrentPlayers => Clients.Count;
 

@@ -24,6 +24,15 @@ public class NetworkClient : INetworkClient
 {
     protected readonly ILogger Logger;
 
+    // UDP + IP overhead, matching the budget used by Channel. A datagram payload is the
+    // socket id plus zero or more game-message sub-packets; keep the whole thing under MTU.
+    private const int _protocolHeaderSize = 80;
+    private const int _socketIdSize = 4;
+    private const int _maxDatagramPayload = PacketServer.MTU - _protocolHeaderSize;
+
+    private readonly List<Memory<byte>> _outgoingBatch = [];
+    private bool _batchOutgoing;
+
     protected internal NetworkClient(IPEndPoint endPoint, uint socketId, ILogger logger)
     {
         Logger = logger;
@@ -50,6 +59,7 @@ public class NetworkClient : INetworkClient
         Sender = sender;
         NetClientStatus = ClientStatus.Connecting;
         AssignedShard = shard;
+        _batchOutgoing = shard.Settings.BatchOutgoingPackets;
         SequencedMessages = new();
 
         NetChannels = Channel.GetChannels(this, Logger).ToImmutableDictionary();
@@ -104,6 +114,8 @@ public class NetworkClient : INetworkClient
         {
             channel.Process(ct);
         }
+
+        FlushOutgoing();
     }
 
     public void SendDebugChat(string message)
@@ -156,13 +168,13 @@ public class NetworkClient : INetworkClient
             return;
         }
 
-        NetLastActive = DateTime.Now;
+        if (_batchOutgoing)
+        {
+            _outgoingBatch.Add(packet);
+            return;
+        }
 
-        var t = new Memory<byte>(new byte[4 + packet.Length]);
-        packet.CopyTo(t[4..]);
-        Serializer.WriteStruct(Utils.SimpleFixEndianness(SocketId)).CopyTo(t);
-
-        Sender.SendAsync(t, RemoteEndpoint);
+        SendDatagram(packet);
     }
 
     public void SendAck(ChannelType forChannel, ushort forSequenceNumber, DateTime? received = null)
@@ -311,6 +323,61 @@ public class NetworkClient : INetworkClient
                 Logger.Warning(">  {PacketData}", BitConverter.ToString(packet.PacketData.ToArray()).Replace("-", " "));
                 break;
         }
+    }
+
+    /// <summary>
+    ///     Send a single game-message sub-packet as its own UDP datagram (socket id + sub-packet).
+    ///     Used when <see cref="GameServerSettings.BatchOutgoingPackets" /> is disabled.
+    /// </summary>
+    private void SendDatagram(Memory<byte> packet)
+    {
+        NetLastActive = DateTime.Now;
+
+        var t = new Memory<byte>(new byte[_socketIdSize + packet.Length]);
+        packet.CopyTo(t[_socketIdSize..]);
+        Serializer.WriteStruct(Utils.SimpleFixEndianness(SocketId)).CopyTo(t);
+
+        Sender.SendAsync(t, RemoteEndpoint);
+    }
+
+    /// <summary>
+    ///     Flush any accumulated game-message sub-packets to the client, packing as many as fit
+    ///     into each UDP datagram (socket id + sub-packets, capped at the MTU budget). Called once
+    ///     at the end of <see cref="NetworkTick" />; all sub-packets were enqueued on the same thread.
+    /// </summary>
+    private void FlushOutgoing()
+    {
+        if (_outgoingBatch.Count == 0)
+        {
+            return;
+        }
+
+        NetLastActive = DateTime.Now;
+
+        var socketIdBytes = Serializer.WriteStruct(Utils.SimpleFixEndianness(SocketId));
+
+        var datagram = new Memory<byte>(new byte[_maxDatagramPayload]);
+        socketIdBytes.CopyTo(datagram);
+        var currentSize = _socketIdSize;
+
+        foreach (var packet in _outgoingBatch)
+        {
+            if (currentSize + packet.Length > _maxDatagramPayload)
+            {
+                Sender.SendAsync(datagram[..currentSize], RemoteEndpoint);
+
+                datagram = new Memory<byte>(new byte[_maxDatagramPayload]);
+                socketIdBytes.CopyTo(datagram);
+                currentSize = _socketIdSize;
+            }
+
+            packet.CopyTo(datagram[currentSize..]);
+            currentSize += packet.Length;
+        }
+
+        Sender.SendAsync(datagram[..currentSize], RemoteEndpoint);
+
+        _outgoingBatch.Clear();
     }
 
     private List<string> SplitConsoleMessage(string input)
