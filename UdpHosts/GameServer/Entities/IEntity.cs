@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 using AeroMessages.Common;
-using AeroMessages.GSS.V66;
+using AeroMessages.GSS;
 
 namespace GameServer.Entities;
 

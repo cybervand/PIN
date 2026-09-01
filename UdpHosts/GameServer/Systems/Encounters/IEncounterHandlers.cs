@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using AeroMessages.GSS.V66.Character.Command;
+using AeroMessages.GSS.Character.Command;
 using GameServer.Entities;
 
 namespace GameServer.Systems.Encounters;

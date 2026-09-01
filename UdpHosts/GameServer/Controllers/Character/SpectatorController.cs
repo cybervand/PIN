@@ -1,12 +1,12 @@
-using AeroMessages.GSS.V66.Character.Command;
-using GameServer.Enums.GSS.Character;
+using Aero.Protocol;
+using AeroMessages.GSS.Character.Command;
 using GameServer.Extensions;
 using GameServer.Packets;
 using Serilog;
 
 namespace GameServer.Controllers.Character;
 
-[ControllerID(Enums.GSS.Controllers.Character_SpectatorController)]
+[Typecode(GssCharacterView.SpectatorController)]
 public class SpectatorController : Base
 {
     private ILogger _logger;
@@ -16,7 +16,7 @@ public class SpectatorController : Base
         _logger = logger;
     }
 
-    [MessageID((byte)Commands.PerformTextChat)]
+    [MessageID(GssCharacterCommand.PerformTextChat)]
     public void PerformTextChat(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var query = packet.Unpack<PerformTextChat>();

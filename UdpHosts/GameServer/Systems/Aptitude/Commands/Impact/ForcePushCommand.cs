@@ -1,5 +1,5 @@
 using System.Numerics;
-using AeroMessages.GSS.V66.Character.Event;
+using AeroMessages.GSS.Character.Event;
 using GameServer.Entities.Character;
 using GameServer.StaticDB.Records.aptfs;
 
@@ -33,10 +33,10 @@ public class ForcePushCommand : Command, ICommand
                 var player = character.Player;
                 var message = new ForcedMovement
                 {
-                    Data = new AeroMessages.GSS.V66.ForcedMovementData
+                    Data = new AeroMessages.GSS.ForcedMovementData
                     {
                         Type = 5,
-                        Params5 = new AeroMessages.GSS.V66.ForcedMovementType5Params
+                        Params5 = new AeroMessages.GSS.ForcedMovementType5Params
                         {
                             Velocity = velocity,
                             Time1 = context.Shard.CurrentTime + 19,

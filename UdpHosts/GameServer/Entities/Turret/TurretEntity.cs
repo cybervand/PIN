@@ -1,9 +1,9 @@
 using System.Numerics;
 using AeroMessages.Common;
-using AeroMessages.GSS.V66;
-using AeroMessages.GSS.V66.Character;
-using AeroMessages.GSS.V66.Turret.Controller;
-using AeroMessages.GSS.V66.Turret.View;
+using AeroMessages.GSS;
+using AeroMessages.GSS.Character;
+using AeroMessages.GSS.Turret.Controller;
+using AeroMessages.GSS.Turret.View;
 
 namespace GameServer.Entities.Turret;
 

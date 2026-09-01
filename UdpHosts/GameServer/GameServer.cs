@@ -36,6 +36,8 @@ internal class GameServer : PacketServer
 
         _settings = serverSettings;
 
+        Logger.Information("Serving client {Environment}/{Branch} version {ClientVersion}: GSS protocol {GssVersion}, Matrix protocol {MatrixVersion}", serverSettings.ClientEnvironment, serverSettings.ClientBranch, serverSettings.ClientVersion, serverSettings.GssProtocolVersion, serverSettings.MatrixProtocolVersion);
+
         Logger.ForContext<SDBInterface>().Information("Reading from SDB");
         SDBInterface.Init(sdb);
 
@@ -51,7 +53,7 @@ internal class GameServer : PacketServer
         DataUtils.Init();
         Factory.Init();
 
-        var shardId = _serverId | (1u << 8) | (byte)Enums.GSS.Controllers.GenericShard;
+        var shardId = _serverId | (1u << 8) | (byte)GuidService.AdditionalTypes.Instance;
         _shard = new Shard(_gameTickRate, shardId, _settings, this, Logger);
 
         _shard.Run(ct);

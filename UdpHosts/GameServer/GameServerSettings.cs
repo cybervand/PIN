@@ -1,4 +1,5 @@
 ﻿using System;
+using Aero.Protocol;
 using Serilog.Core;
 using Serilog.Events;
 
@@ -31,9 +32,34 @@ public class GameServerSettings
     public LoggingLevelSwitch LevelSwitch { get; set; } = new();
 
     /// <summary>
-    ///     UDP port the game server should be listening on
+    ///    UDP port the game server should be listening on
     /// </summary>
     public ushort Port { get; set; } = 25001;
+
+    /// <summary>
+    ///    Firefall client version this server instance serves. Used to resolve the network protocol.
+    /// </summary>
+    public string ClientVersion { get; set; } = "1962";
+
+    /// <summary>
+    ///    Firefall client environment this server instance serves. Used to resolve the network protocol.
+    /// </summary>
+    public string ClientEnvironment { get; set; } = "production";
+
+    /// <summary>
+    ///    Firefall client branch this server instance serves. Used to resolve the network protocol.
+    /// </summary>
+    public string ClientBranch { get; set; } = "prod";
+
+    /// <summary>
+    ///    GSS protocol version resolved from <see cref="ClientVersion" />, <see cref="ClientBranch" />, and <see cref="ClientEnvironment" /> at startup
+    /// </summary>
+    public GssVersion GssProtocolVersion { get; set; } = GssVersion.V67;
+
+    /// <summary>
+    ///    Matrix protocol version resolved from <see cref="ClientVersion" />, <see cref="ClientBranch" />, and <see cref="ClientEnvironment" /> at startup
+    /// </summary>
+    public MatrixVersion MatrixProtocolVersion { get; set; } = MatrixVersion.V26;
 
     /// <summary>
     ///    Address to use to connect to RIN.InternalAPI for GRPC. If the connection fails, GRPC will not be used.
@@ -81,8 +107,7 @@ public class GameServerSettings
     public bool ForceReloadZone { get; set; }
 
     /// <summary>
-    ///    Batch multiple outgoing game messages into a single UDP datagram (up to the MTU budget).
-    ///    Disable if a client fails to parse datagrams containing more than one message.
+    ///    Batch multiple outgoing game messages into a single packet (up to the MTU budget).
     /// </summary>
     public bool BatchOutgoingPackets { get; set; } = true;
 }

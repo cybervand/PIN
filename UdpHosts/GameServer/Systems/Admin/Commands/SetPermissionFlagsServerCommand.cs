@@ -1,5 +1,5 @@
 using GameServer.Entities.Character;
-using static AeroMessages.GSS.V66.Character.Controller.PermissionFlagsData;
+using static AeroMessages.GSS.Character.Controller.PermissionFlagsData;
 
 namespace GameServer.Systems.Admin.Commands;
 

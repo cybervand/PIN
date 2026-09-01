@@ -1,7 +1,7 @@
-﻿using AeroMessages.GSS.V66.Vehicle.Command;
-using AeroMessages.GSS.V66.Vehicle.Event;
+﻿using Aero.Protocol;
+using AeroMessages.GSS.Vehicle.Command;
+using AeroMessages.GSS.Vehicle.Event;
 using GameServer.Entities.Vehicle;
-using GameServer.Enums.GSS.Vehicle;
 using GameServer.Extensions;
 using GameServer.Packets;
 using GameServer.Systems.Aptitude;
@@ -9,7 +9,7 @@ using Serilog;
 
 namespace GameServer.Controllers.Vehicle;
 
-[ControllerID(Enums.GSS.Controllers.Vehicle_CombatController)]
+[Typecode(GssVehicleView.CombatController)]
 public class CombatController : Base
 {
     public override void Init(INetworkClient client, IPlayer player, IShard shard, ILogger logger)
@@ -17,7 +17,7 @@ public class CombatController : Base
         // TODO: Implement
     }
 
-    [MessageID((byte)Commands.ActivateAbility)]
+    [MessageID(GssVehicleCommand.ActivateAbility)]
     public void ActivateAbility(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var activateAbility = packet.Unpack<ActivateAbility>();
@@ -39,7 +39,7 @@ public class CombatController : Base
         shard.Abilities.HandleActivateAbility(shard, vehicle, abilityId, activateAbility.Time, new AptitudeTargets(vehicle));
     }
 
-    [MessageID((byte)Commands.DeactivateAbility)]
+    [MessageID(GssVehicleCommand.DeactivateAbility)]
     public void DeactivateAbility(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         // todo?

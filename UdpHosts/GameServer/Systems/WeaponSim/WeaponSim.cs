@@ -4,7 +4,7 @@ using System.Linq;
 using System.Numerics;
 using System.Text.Json;
 using System.Threading;
-using AeroMessages.GSS.V66.Generic;
+using AeroMessages.GSS.Generic;
 using GameServer.Entities;
 using GameServer.Entities.Character;
 using GameServer.Enums;

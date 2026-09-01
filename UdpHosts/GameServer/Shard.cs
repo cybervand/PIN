@@ -32,11 +32,9 @@ public class Shard : IShard
 
     private long _startTime;
     private double _lastNetTick;
-    private ushort _lastEntityRefId;
 
     public Shard(double gameTickRate, ulong instanceId, GameServerSettings settings, IPacketSender sender, Serilog.ILogger logger)
     {
-        _lastEntityRefId = 0;
         InstanceId = instanceId;
         Settings = settings;
         ZoneId = settings.ZoneId;
@@ -64,7 +62,6 @@ public class Shard : IShard
         CharacterLifecycle = new CharacterLifecycleService(this, EventBus, new StandardCharacterLifecycleRules());
         PlayerRespawn = new PlayerRespawnService(this, EventBus, new StandardPlayerRespawnRules(), CharacterLifecycle);
         NpcDeath = new NpcDeathService(this, EventBus, npcDeathRules);
-        EntityRefMap = new ConcurrentDictionary<ushort, Tuple<IEntity, Enums.GSS.Controllers>>();
     }
 
     public DateTime StartTime => DateTimeExtensions.Epoch.AddSeconds(_startTime);
@@ -93,7 +90,6 @@ public class Shard : IShard
     public ulong CurrentTimeLong { get; private set; }
     public uint CurrentTime => unchecked((uint)CurrentTimeLong);
     public ushort CurrentShortTime => unchecked((ushort)CurrentTime);
-    public IDictionary<ushort, Tuple<IEntity, Enums.GSS.Controllers>> EntityRefMap { get; }
     public Serilog.ILogger Logger { get; }
     public GameServerSettings Settings { get; }
     private IPacketSender Sender { get; }
@@ -167,18 +163,7 @@ public class Shard : IShard
         return await Sender.SendAsync(packet, endPoint);
     }
 
-    public ushort AssignNewRefId(IEntity entity, Enums.GSS.Controllers controller)
-    {
-        while (EntityRefMap.ContainsKey(unchecked(++_lastEntityRefId)) || _lastEntityRefId is 0 or 0xffff)
-        {
-        }
-
-        EntityRefMap.Add(_lastEntityRefId, new Tuple<IEntity, Enums.GSS.Controllers>(entity, controller));
-
-        return unchecked(_lastEntityRefId++);
-    }
-
-    public ulong GetNextGuid(byte type = (byte)Enums.GSS.Controllers.Generic)
+    public ulong GetNextGuid(byte type = 0)
     {
         return GuidService.GetNext(this, type);
     }

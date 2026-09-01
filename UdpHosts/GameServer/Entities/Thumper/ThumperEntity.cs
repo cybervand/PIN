@@ -1,7 +1,7 @@
 using System.Numerics;
 using AeroMessages.Common;
-using AeroMessages.GSS.V66;
-using AeroMessages.GSS.V66.ResourceNode.View;
+using AeroMessages.GSS;
+using AeroMessages.GSS.ResourceNode.View;
 using GameServer.Entities.Character;
 using GameServer.Enums;
 using GameServer.StaticDB.Records.aptfs;

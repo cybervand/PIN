@@ -1,6 +1,6 @@
 using System.Numerics;
-using AeroMessages.GSS.V66;
-using AeroMessages.GSS.V66.Character.Event;
+using AeroMessages.GSS;
+using AeroMessages.GSS.Character.Event;
 
 namespace GameServer.Systems.Admin.Commands;
 

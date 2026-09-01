@@ -7,49 +7,47 @@ namespace GameServer.Controllers;
 
 public static class Factory
 {
-    private static ConcurrentDictionary<Enums.GSS.Controllers, Base> _controllers;
+    private static ConcurrentDictionary<(int Ns, int ViewOrdinal), Base> _controllers;
 
     public static void Init()
     {
-        _controllers = new ConcurrentDictionary<Enums.GSS.Controllers, Base>();
+        _controllers = new ConcurrentDictionary<(int Ns, int ViewOrdinal), Base>();
     }
 
     public static T Get<T>()
         where T : Base, new()
     {
-        var attr = typeof(T).GetAttribute<ControllerIDAttribute>();
+        var attr = typeof(T).GetAttribute<TypecodeAttribute>();
 
         if (attr == null)
         {
-            throw new ArgumentNullException(nameof(T), "Type [" + typeof(T).FullName + "] does not have a ControllerID Attribute.");
+            throw new ArgumentNullException(nameof(T), "Type [" + typeof(T).FullName + "] does not have a Typecode Attribute.");
         }
 
-        var k = attr.ControllerID;
-
-        if (!_controllers.ContainsKey(k))
-        {
-            return _controllers.AddOrUpdate(k, new T(), (_, nc) => nc) as T;
-        }
-
-        return _controllers[k] as T;
+        return _controllers.AddOrUpdate((attr.Namespace, attr.ViewOrdinal), new T(), (_, nc) => nc) as T;
     }
 
-    public static Base Get(Enums.GSS.Controllers controllerId)
+    public static Base Get(int ns, int viewOrdinal)
     {
-        if (_controllers.TryGetValue(controllerId, out var controller))
+        if (_controllers.TryGetValue((ns, viewOrdinal), out var controller))
         {
             return controller;
         }
 
-        var t = ForControllerId(controllerId);
+        var t = ForTypecode(ns, viewOrdinal);
 
-        return t != null ? _controllers.AddOrUpdate(controllerId, Activator.CreateInstance(t) as Base, (_, nc) => nc) : null;
+        return t != null ? _controllers.AddOrUpdate((ns, viewOrdinal), Activator.CreateInstance(t) as Base, (_, nc) => nc) : null;
     }
 
-    private static Type ForControllerId(Enums.GSS.Controllers controllerId)
+    private static Type ForTypecode(int ns, int viewOrdinal)
     {
-        var ts = ReflectionUtils.FindTypesByAttribute<ControllerIDAttribute>();
+        var ts = ReflectionUtils.FindTypesByAttribute<TypecodeAttribute>();
 
-        return ts.FirstOrDefault(t => t.GetAttribute<ControllerIDAttribute>().ControllerID == controllerId);
+        return ts.FirstOrDefault(t =>
+        {
+            var attr = t.GetAttribute<TypecodeAttribute>();
+
+            return attr != null && attr.Namespace == ns && attr.ViewOrdinal == viewOrdinal;
+        });
     }
 }

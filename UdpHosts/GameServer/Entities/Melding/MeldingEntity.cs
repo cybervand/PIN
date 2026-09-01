@@ -1,8 +1,8 @@
 using System;
 using System.Numerics;
 using AeroMessages.Common;
-using AeroMessages.GSS.V66;
-using AeroMessages.GSS.V66.Melding.View;
+using AeroMessages.GSS;
+using AeroMessages.GSS.Melding.View;
 
 namespace GameServer.Entities.Melding;
 

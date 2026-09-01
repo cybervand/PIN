@@ -2,11 +2,11 @@
 using System.Net;
 using System.Numerics;
 using System.Threading;
-using AeroMessages.GSS.V66;
-using AeroMessages.GSS.V66.Character;
-using AeroMessages.GSS.V66.Character.Controller;
-using AeroMessages.GSS.V66.Character.Event;
-using AeroMessages.Matrix.V25;
+using AeroMessages.GSS;
+using AeroMessages.GSS.Character;
+using AeroMessages.GSS.Character.Controller;
+using AeroMessages.GSS.Character.Event;
+using AeroMessages.Matrix;
 using GameServer.Data;
 using GameServer.GRPC;
 using GameServer.StaticDB.Records.customdata;

@@ -1,5 +1,5 @@
 using System.Numerics;
-using AeroMessages.GSS.V66.Character.Event;
+using AeroMessages.GSS.Character.Event;
 using GameServer.Entities.Character;
 
 namespace GameServer.Physics;
@@ -21,7 +21,7 @@ public struct DebugProjectileHitCallbacks
             Data = new()
             {
                 Time = Shard.CurrentTime,
-                TraceType = AeroMessages.GSS.V66.TookDebugWeaponHitData.DebugTraceType.Spawn,
+                TraceType = AeroMessages.GSS.TookDebugWeaponHitData.DebugTraceType.Spawn,
                 Unk2_TraceId = traceId,
                 Position = origin,
                 Direction = rayVector,
@@ -40,7 +40,7 @@ public struct DebugProjectileHitCallbacks
             Data = new()
             {
                 Time = Shard.CurrentTime,
-                TraceType = AeroMessages.GSS.V66.TookDebugWeaponHitData.DebugTraceType.Bounce,
+                TraceType = AeroMessages.GSS.TookDebugWeaponHitData.DebugTraceType.Bounce,
                 Unk2_TraceId = traceId,
                 Position = position,
                 Direction = normal,
@@ -59,7 +59,7 @@ public struct DebugProjectileHitCallbacks
             Data = new()
             {
                 Time = Shard.CurrentTime,
-                TraceType = AeroMessages.GSS.V66.TookDebugWeaponHitData.DebugTraceType.Impact,
+                TraceType = AeroMessages.GSS.TookDebugWeaponHitData.DebugTraceType.Impact,
                 Unk2_TraceId = traceId,
                 Position = position,
                 Direction = normal,
@@ -78,12 +78,12 @@ public struct DebugProjectileHitCallbacks
             Data = new()
             {
                 Time = Shard.CurrentTime,
-                TraceType = AeroMessages.GSS.V66.TookDebugWeaponHitData.DebugTraceType.Posefile_Hit,
+                TraceType = AeroMessages.GSS.TookDebugWeaponHitData.DebugTraceType.Posefile_Hit,
                 Unk2_TraceId = traceId,
                 Position = markerOrigin,
                 Direction = new Vector3(0.225f, 0.974f, 0),
                 HaveUnk8 = 1,
-                Unk8 = new AeroMessages.GSS.V66.TookDebugWeaponHitRelatedData
+                Unk8 = new AeroMessages.GSS.TookDebugWeaponHitRelatedData
                 {
                     Target = source.AeroEntityId,
                     Origin = poseOrigin,
@@ -107,7 +107,7 @@ public struct DebugProjectileHitCallbacks
             Data = new()
             {
                 Time = Shard.CurrentTime,
-                TraceType = AeroMessages.GSS.V66.TookDebugWeaponHitData.DebugTraceType.Timeout,
+                TraceType = AeroMessages.GSS.TookDebugWeaponHitData.DebugTraceType.Timeout,
                 Unk2_TraceId = traceId,
                 Position = position,
                 Direction = direction,

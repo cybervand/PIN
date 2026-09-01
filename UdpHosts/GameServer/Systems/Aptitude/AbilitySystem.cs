@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using AeroMessages.GSS.V66.Character.Command;
+using AeroMessages.GSS.Character.Command;
 using GameServer.Enums;
 using GameServer.StaticDB;
 using Serilog;

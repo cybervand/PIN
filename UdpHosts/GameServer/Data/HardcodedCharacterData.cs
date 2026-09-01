@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using AeroMessages.GSS.V66.Character.Event;
+using AeroMessages.GSS.Character.Event;
 using GameServer.StaticDB;
 using GameServer.StaticDB.Records.dbcharacter;
 

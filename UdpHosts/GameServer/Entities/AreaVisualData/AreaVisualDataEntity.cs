@@ -1,5 +1,5 @@
 using AeroMessages.Common;
-using AeroMessages.GSS.V66.AreaVisualData.View;
+using AeroMessages.GSS.AreaVisualData.View;
 
 namespace GameServer.Entities.AreaVisualData;
 

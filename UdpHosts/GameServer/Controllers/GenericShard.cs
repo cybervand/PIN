@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Linq;
 using System.Numerics;
+using Aero.Protocol;
 using AeroMessages.Control;
-using AeroMessages.GSS.V66.Generic;
+using AeroMessages.GSS.Generic;
 using GameServer.Entities;
-using GameServer.Enums.GSS.Generic;
 using GameServer.Extensions;
 using GameServer.GRPC;
 using GameServer.Packets;
@@ -13,14 +13,14 @@ using Serilog;
 
 namespace GameServer.Controllers;
 
-[ControllerID(Enums.GSS.Controllers.GenericShard)]
+[Typecode(GssTables.Ns.Root)]
 public class GenericShard : Base
 {
     public override void Init(INetworkClient client, IPlayer player, IShard shard, ILogger logger)
     {
     }
 
-    [MessageID((byte)Commands.ScheduleUpdateRequest)]
+    [MessageID(GssMessage.ScheduleUpdateRequest)]
     public void ScheduleUpdateRequest(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var updateRequest = packet.Unpack<ScheduleUpdateRequest>();
@@ -35,17 +35,17 @@ public class GenericShard : Base
         }
     }
 
-    [MessageID((byte)Commands.UIToEncounterMessage)]
+    [MessageID(GssMessage.UIToEncounterMessage)]
     public void UiToEncounter(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
     }
 
-    [MessageID((byte)Commands.ServerProfiler_RequestNames)]
+    [MessageID(GssMessage.ServerProfiler_RequestNames)]
     public void ServerProfiler_RequestNames(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
     }
 
-    [MessageID((byte)Commands.LocalProximityAbilitySuccess)]
+    [MessageID(GssMessage.LocalProximityAbilitySuccess)]
     public void LocalProximityAbilitySuccess(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var shard = client.AssignedShard;
@@ -72,22 +72,22 @@ public class GenericShard : Base
         abilities.HandleLocalProximityAbilitySuccess(shard, source, message.ClientProximityCommandId, message.Time, new AptitudeTargets(targets));
     }
 
-    [MessageID((byte)Commands.RemoteProximityAbilitySuccess)]
+    [MessageID(GssMessage.RemoteProximityAbilitySuccess)]
     public void RemoteProximityAbilitySuccess(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
     }
 
-    [MessageID((byte)Commands.TrailRequest)]
+    [MessageID(GssMessage.TrailRequest)]
     public void TrailRequest(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
     }
 
-    [MessageID((byte)Commands.RequestLeaveZone)]
+    [MessageID(GssMessage.RequestLeaveZone)]
     public void RequestLeaveZone(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
     }
 
-    [MessageID((byte)Commands.RequestLogout)]
+    [MessageID(GssMessage.RequestLogout)]
     public void RequestLogout(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var resp = new CloseConnection { Unk = [0, 0, 0, 0] };
@@ -126,37 +126,37 @@ public class GenericShard : Base
               (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds() - player.ConnectedAt);
     }
 
-    [MessageID((byte)Commands.RequestEncounterInfo)]
+    [MessageID(GssMessage.RequestEncounterInfo)]
     public void RequestEncounterInfo(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
     }
 
-    [MessageID((byte)Commands.RequestActiveEncounters)]
+    [MessageID(GssMessage.RequestActiveEncounters)]
     public void RequestActiveEncounters(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
     }
 
-    [MessageID((byte)Commands.VotekickRequest)]
+    [MessageID(GssMessage.VotekickRequest)]
     public void VotekickRequest(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
     }
 
-    [MessageID((byte)Commands.VotekickResponse)]
+    [MessageID(GssMessage.VotekickResponse)]
     public void VotekickResponse(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
     }
 
-    [MessageID((byte)Commands.GlobalCounterRequest)]
+    [MessageID(GssMessage.GlobalCounterRequest)]
     public void GlobalCounterRequest(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
     }
 
-    [MessageID((byte)Commands.CurrentLoadoutRequest)]
+    [MessageID(GssMessage.CurrentLoadoutRequest)]
     public void CurrentLoadoutRequest(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
     }
 
-    [MessageID((byte)Commands.VendorProductRequest)]
+    [MessageID(GssMessage.VendorProductRequest)]
     public void VendorProductRequest(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
     }

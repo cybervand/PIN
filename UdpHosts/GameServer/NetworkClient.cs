@@ -6,15 +6,17 @@ using System.Collections.Immutable;
 using System.Net;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using Aero.Protocol;
 using AeroMessages.Control;
-using AeroMessages.GSS.V66.Generic;
-using AeroMessages.Matrix.V25;
+using AeroMessages.GSS.Generic;
+using AeroMessages.Matrix;
 using GameServer.Controllers;
 using GameServer.Controllers.Character;
 using GameServer.Entities;
 using GameServer.Enums;
 using GameServer.Extensions;
 using GameServer.Packets;
+using GameServer.Protocol;
 using Serilog;
 using Shared.Udp;
 
@@ -62,7 +64,7 @@ public class NetworkClient : INetworkClient
         _batchOutgoing = shard.Settings.BatchOutgoingPackets;
         SequencedMessages = new();
 
-        NetChannels = Channel.GetChannels(this, Logger).ToImmutableDictionary();
+        NetChannels = Channel.GetChannels(this, Logger, AssignedShard.Settings.GssProtocolVersion, AssignedShard.Settings.MatrixProtocolVersion).ToImmutableDictionary();
         NetChannels[ChannelType.Control].PacketAvailable += Control_PacketAvailable;
         NetChannels[ChannelType.Matrix].PacketAvailable += Matrix_PacketAvailable;
         NetChannels[ChannelType.ReliableGss].PacketAvailable += GSS_PacketAvailable;
@@ -203,45 +205,56 @@ public class NetworkClient : INetworkClient
 
     private void GSS_PacketAvailable(GamePacket packet)
     {
-        var controllerId = packet.Read<Enums.GSS.Controllers>();
+        var typecode = packet.Read<byte>();
         Span<byte> entity = stackalloc byte[8];
         packet.Read(7).ToArray().CopyTo(entity);
         var entityId = BitConverter.ToUInt64(entity) << 8;
         var messageId = packet.Read<byte>();
 
-        var connection = Factory.Get(controllerId);
+        WireIds.ResolveGssRoute(AssignedShard.Settings.GssProtocolVersion, typecode, out var ns, out var viewOrdinal);
+        var connection = Factory.Get(ns, viewOrdinal);
 
         if (connection == null)
         {
-            Logger.Verbose("---> Unrecognized ControllerId for GSS Packet; Controller = {Controller} Entity = 0x{EntityId:X16} MsgID = {MessageId}!", controllerId, entityId, messageId);
+            Logger.Verbose("---> No controller for GSS typecode; Typecode = {Typecode} (ns-{Ns} view-{ViewOrdinal}) Entity = 0x{EntityId:X16} MsgID = {MessageId}!", typecode, ns, viewOrdinal, entityId, messageId);
             Logger.Warning(">  {PacketData}", BitConverter.ToString(packet.PacketData.ToArray()).Replace("-", " "));
             return;
         }
 
-        Logger.Verbose("--> {Channel}: Controller = {Controller} Entity = 0x{EntityId:X16} MsgID = {MessageId}", packet.Header.Channel, controllerId, entityId, messageId);
+        Logger.Verbose("--> {Channel}: Typecode = {Typecode} ({TypecodeName}) Entity = 0x{EntityId:X16} MsgID = {MessageId}", packet.Header.Channel, typecode, connection.TypecodeName, entityId, messageId);
         connection.HandlePacket(this, Player, entityId, messageId, packet, Logger);
     }
 
     private void Matrix_PacketAvailable(GamePacket packet)
     {
-        var messageId = packet.Read<MatrixPacketType>();
-        Logger.Verbose("--> {Channel}: MsgID = {Message} ({MessageId})", ChannelType.Matrix, messageId, (byte)messageId);
+        var wireId = packet.Read<byte>();
+        var ordinal = MatrixTables.FindMessage(AssignedShard.Settings.MatrixProtocolVersion, wireId);
+
+        if (ordinal < 0)
+        {
+            Logger.Warning("---> Unrecognized Matrix Packet (mid-{MessageId}) on protocol {Version}!!!", wireId, AssignedShard.Settings.MatrixProtocolVersion);
+            Logger.Warning(">  {PacketData}", BitConverter.ToString(packet.PacketData.ToArray()).Replace("-", " "));
+            return;
+        }
+
+        var messageId = (MatrixMessage)ordinal;
+        Logger.Verbose("--> {Channel}: MsgID = {Message} ({MessageId})", ChannelType.Matrix, messageId, wireId);
 
         switch (messageId)
         {
-            case MatrixPacketType.Login:
+            case MatrixMessage.Login:
                 var aeroLogin = packet.Unpack<Login>();
                 Player.Login(aeroLogin.CharacterGuid);
                 break;
-            case MatrixPacketType.EnterZoneAck:
+            case MatrixMessage.EnterZoneAck:
                 Factory.Get<BaseController>().Init(this, Player, AssignedShard, Logger);
                 Factory.Get<CombatController>().Init(this, Player, AssignedShard, Logger);
                 Player.EnterZoneAck();
                 break;
-            case MatrixPacketType.ExitZoneAck:
+            case MatrixMessage.ExitZoneAck:
                 Player.ExitZoneAck();
                 break;
-            case MatrixPacketType.KeyframeRequest:
+            case MatrixMessage.KeyframeRequest:
                 var query = packet.Unpack<KeyframeRequest>();
                 Logger.Verbose("KeyframeRequest with {EntityRequests} entity requests and {RefRequests} ref requests. Total scoped for player: {ScopedEntitiesForPlayer}",
                     query.EntityRequests?.Length ?? 0,
@@ -249,7 +262,7 @@ public class NetworkClient : INetworkClient
                     AssignedShard.EntityMan.GetNumberOfScopedEntities(Player));
                 foreach (var request in query.EntityRequests)
                 {
-                    Enums.GSS.Controllers typecode = (Enums.GSS.Controllers)(request.Entity & 0x00000000000000FFul);
+                    byte typecode = (byte)(request.Entity & 0x00000000000000FFul);
                     AssignedShard.Entities.TryGetValue(request.Entity & 0xffffffffffffff00, out IEntity entity);
                     if (entity != null)
                     {
@@ -262,7 +275,7 @@ public class NetworkClient : INetworkClient
                 }
 
                 break;
-            case MatrixPacketType.ClientStatus:
+            case MatrixMessage.ClientStatus:
                 NetChannels[ChannelType.Matrix].SendMessage(new MatrixStatus
                 {
                     MatrixBytesPerSecond = 0,
@@ -275,12 +288,7 @@ public class NetworkClient : INetworkClient
                     Unk8 = []
                 });
                 break;
-            case MatrixPacketType.LogInstrumentation:
-                // Ignore
-                break;
-            default:
-                Logger.Warning("---> Unrecognized Matrix Packet {Message}[{MessageId}]!!!", messageId, (byte)messageId);
-                Logger.Warning(">  {PacketData}", BitConverter.ToString(packet.PacketData.ToArray()).Replace("-", " "));
+            case MatrixMessage.LogInstrumentation:
                 break;
         }
     }

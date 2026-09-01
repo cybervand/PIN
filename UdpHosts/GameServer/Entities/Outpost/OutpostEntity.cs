@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using AeroMessages.Common;
-using AeroMessages.GSS.V66;
-using AeroMessages.GSS.V66.Outpost.View;
+using AeroMessages.GSS;
+using AeroMessages.GSS.Outpost.View;
 using GameServer.Data;
 using GameServer.StaticDB.Records.customdata;
 

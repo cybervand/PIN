@@ -1,7 +1,7 @@
 using System.Numerics;
 using AeroMessages.Common;
-using AeroMessages.GSS.V66;
-using AeroMessages.GSS.V66.MeldingBubble.View;
+using AeroMessages.GSS;
+using AeroMessages.GSS.MeldingBubble.View;
 
 namespace GameServer.Entities.MeldingBubble;
 

@@ -1,4 +1,4 @@
-﻿using AeroMessages.GSS.V66.Character.Controller;
+﻿using AeroMessages.GSS.Character.Controller;
 using GameServer.Entities.Character;
 using GameServer.Enums;
 using GameServer.StaticDB.Records.aptfs;

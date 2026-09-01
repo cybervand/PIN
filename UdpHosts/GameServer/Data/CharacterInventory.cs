@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using AeroMessages.GSS.V66.Character;
-using AeroMessages.GSS.V66.Character.Event;
+using AeroMessages.GSS.Character;
+using AeroMessages.GSS.Character.Event;
 using GameServer.Entities.Character;
 using GameServer.Enums;
 using GameServer.StaticDB;
 using Serilog;
-using LoadoutVisualType = AeroMessages.GSS.V66.Character.LoadoutConfig_Visual.LoadoutVisualType;
+using LoadoutVisualType = AeroMessages.GSS.Character.LoadoutConfig_Visual.LoadoutVisualType;
 
 namespace GameServer.Data;
 

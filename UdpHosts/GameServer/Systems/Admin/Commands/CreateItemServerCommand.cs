@@ -1,5 +1,5 @@
 using System;
-using AeroMessages.GSS.V66.Character.Event;
+using AeroMessages.GSS.Character.Event;
 using GameServer.Enums;
 using GameServer.StaticDB;
 

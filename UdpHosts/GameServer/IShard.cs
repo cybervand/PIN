@@ -49,7 +49,6 @@ public interface IShard : IPacketSender
     ulong CurrentTimeLong { get; }
     uint CurrentTime => unchecked((uint)CurrentTimeLong);
     ushort CurrentShortTime => unchecked((ushort)CurrentTime);
-    IDictionary<ushort, Tuple<IEntity, Enums.GSS.Controllers>> EntityRefMap { get; }
 
     ulong GetNextGuid(byte type);
     void Run(CancellationToken ct);
@@ -57,5 +56,4 @@ public interface IShard : IPacketSender
     void NetworkTick(double deltaTime, ulong currentTime, CancellationToken ct);
     bool MigrateOut(INetworkPlayer player);
     bool MigrateIn(INetworkPlayer player);
-    ushort AssignNewRefId(IEntity entity, Enums.GSS.Controllers controller);
 }

@@ -1,17 +1,17 @@
 ﻿using System.Threading;
 using AeroMessages.Common;
-using AeroMessages.GSS.V66.AreaVisualData;
-using AeroMessages.GSS.V66.Character;
-using AeroMessages.GSS.V66.Character.Controller;
-using AeroMessages.GSS.V66.Character.Event;
-using AeroMessages.GSS.V66.Generic.Event.EncounterView;
+using AeroMessages.GSS.AreaVisualData;
+using AeroMessages.GSS.Character;
+using AeroMessages.GSS.Character.Controller;
+using AeroMessages.GSS.Character.Event;
+using AeroMessages.GSS.Generic.Event.EncounterView;
 using GameServer.Entities;
 using GameServer.Entities.AreaVisualData;
 using GameServer.GRPC;
 using GameServer.StaticDB.Records.customdata.Encounters;
 using GrpcGameServerAPIClient;
 using Command = GrpcGameServerAPIClient.Command;
-using SinCardTimer = AeroMessages.GSS.V66.Timer;
+using SinCardTimer = AeroMessages.GSS.Timer;
 
 namespace GameServer.Systems.Encounters.Encounters;
 

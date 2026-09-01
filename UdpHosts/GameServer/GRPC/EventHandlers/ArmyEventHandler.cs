@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using AeroMessages.GSS.V66.Character.Event;
+using AeroMessages.GSS.Character.Event;
 using GameServer.Test;
 using Google.Protobuf.Collections;
 using GrpcGameServerAPIClient;

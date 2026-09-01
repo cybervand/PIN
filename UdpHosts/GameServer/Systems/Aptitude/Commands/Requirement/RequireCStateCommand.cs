@@ -1,6 +1,6 @@
 using GameServer.Entities.Character;
 using GameServer.StaticDB.Records.aptfs;
-using static AeroMessages.GSS.V66.Character.CharacterStateData;
+using static AeroMessages.GSS.Character.CharacterStateData;
 
 namespace GameServer.Systems.Aptitude.Commands.Requirement;
 

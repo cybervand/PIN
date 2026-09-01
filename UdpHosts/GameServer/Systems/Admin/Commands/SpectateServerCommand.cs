@@ -22,16 +22,16 @@ public class SpectateServerCommand : ServerCommand
 
             if (character.Character_SpectatorController == null)
             {
-                character.Character_SpectatorController = new AeroMessages.GSS.V66.Character.Controller.SpectatorController()
+                character.Character_SpectatorController = new AeroMessages.GSS.Character.Controller.SpectatorController()
                 {
                     SpectatorModeProp = newValue,
                 };
             }
 
-            character.Character_CombatController.CombatFlagsProp = new AeroMessages.GSS.V66.Character.CombatFlagsData()
+            character.Character_CombatController.CombatFlagsProp = new AeroMessages.GSS.Character.CombatFlagsData()
             {
                 Time = context.Shard.CurrentTime,
-                Value = (AeroMessages.GSS.V66.Character.CombatFlagsData.CharacterCombatFlags)0xFFFFFFFF,
+                Value = (AeroMessages.GSS.Character.CombatFlagsData.CharacterCombatFlags)0xFFFFFFFF,
             };
             context.Shard.EntityMan.ScopeIn(context.SourcePlayer, character);
         }
@@ -39,10 +39,10 @@ public class SpectateServerCommand : ServerCommand
         {
             context.Shard.EntityMan.ScopeOut(context.SourcePlayer, character);
             character.Character_SpectatorController = null;
-            character.Character_CombatController.CombatFlagsProp = new AeroMessages.GSS.V66.Character.CombatFlagsData()
+            character.Character_CombatController.CombatFlagsProp = new AeroMessages.GSS.Character.CombatFlagsData()
             {
                 Time = context.Shard.CurrentTime,
-                Value = (AeroMessages.GSS.V66.Character.CombatFlagsData.CharacterCombatFlags)0,
+                Value = (AeroMessages.GSS.Character.CombatFlagsData.CharacterCombatFlags)0,
             };
             character.SetSpawnPose();
             character.SetSpawnTime(context.Shard.CurrentTime);

@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using AeroMessages.GSS.V66;
-using AeroMessages.GSS.V66.Character.Command;
-using AeroMessages.GSS.V66.Character.Event;
+using AeroMessages.GSS;
+using AeroMessages.GSS.Character.Command;
+using AeroMessages.GSS.Character.Event;
 using GameServer.Entities;
 using GameServer.Entities.Character;
 using GameServer.Entities.Deployable;
@@ -81,7 +81,7 @@ public class MeldingRepulsor : BaseEncounter, IInteractionHandler, IDonationHand
 
         var uiQuery = new NewUiQuery()
                       {
-                          QueryGuid = Shard.GetNextGuid((byte)Enums.GSS.Controllers.Generic),
+                          QueryGuid = Shard.GetNextGuid(0), // Generic typecode (0 in all protocol versions)
                           Type = 3,
                           Prompt = 184507,
                           Inputs =

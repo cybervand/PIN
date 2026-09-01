@@ -1,4 +1,4 @@
-using AeroMessages.GSS.V66.Character.Controller;
+using AeroMessages.GSS.Character.Controller;
 
 namespace GameServer.Systems.Chat.Commands;
 

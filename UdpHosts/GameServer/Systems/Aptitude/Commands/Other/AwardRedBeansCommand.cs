@@ -1,5 +1,5 @@
 using System;
-using AeroMessages.GSS.V66.Character;
+using AeroMessages.GSS.Character;
 using GameServer.Entities.Character;
 using GameServer.StaticDB.Records.customdata;
 

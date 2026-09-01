@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Configuration;
+using System.Linq;
+using Aero.Protocol;
 using Autofac;
 using GameServer.Logging;
 using GameServer.StaticDB;
@@ -36,6 +38,21 @@ public class GameServerModule : Module
             if (ConfigurationManager.AppSettings["Port"] != null)
             {
                 settings.Port = ushort.Parse(ConfigurationManager.AppSettings["Port"]);
+            }
+
+            if (ConfigurationManager.AppSettings["ClientVersion"] != null)
+            {
+                settings.ClientVersion = ConfigurationManager.AppSettings["ClientVersion"];
+            }
+
+            if (ConfigurationManager.AppSettings["ClientEnvironment"] != null)
+            {
+                settings.ClientEnvironment = ConfigurationManager.AppSettings["ClientEnvironment"];
+            }
+
+            if (ConfigurationManager.AppSettings["ClientBranch"] != null)
+            {
+                settings.ClientBranch = ConfigurationManager.AppSettings["ClientBranch"];
             }
 
             if (ConfigurationManager.AppSettings["serilog:minimum-level"] != null)
@@ -128,6 +145,8 @@ public class GameServerModule : Module
                     Log.Error($"Cannot parse BatchOutgoingPackets setting value");
                 }
             }
+
+            ResolveProtocolVersions(settings);
 
             return settings;
         })
@@ -244,5 +263,83 @@ public class GameServerModule : Module
             return sdb;
         })
         .As<SDB>().SingleInstance();
+    }
+
+    /// <summary>
+    ///     Resolve the configured <see cref="GameServerSettings.ClientEnvironment" />,
+    ///     <see cref="GameServerSettings.ClientBranch" /> and <see cref="GameServerSettings.ClientVersion" />
+    ///     to the GSS/matrix protocol versions this server instance should speak.
+    /// </summary>
+    private static void ResolveProtocolVersions(GameServerSettings settings)
+    {
+        var environment = settings.ClientEnvironment.Trim();
+        var branch = settings.ClientBranch.Trim();
+        var clientVersion = settings.ClientVersion.Trim();
+
+        var versionMatches = Patches.All
+            .Where(p => string.Equals(p.Version, clientVersion, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(p.Version, $"{clientVersion}.0", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        Patches.PatchInfo? patch = null;
+        foreach (var p in versionMatches)
+        {
+            if (string.Equals(p.Environment, environment, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(p.Branch, branch, StringComparison.OrdinalIgnoreCase))
+            {
+                patch = p;
+                break;
+            }
+        }
+
+        if (patch == null)
+        {
+            if (versionMatches.Count > 0)
+            {
+                var where = string.Join(", ", versionMatches
+                    .Select(p => $"{p.Environment}/{p.Branch}")
+                    .Distinct()
+                    .OrderBy(s => s, StringComparer.OrdinalIgnoreCase));
+                throw new InvalidOperationException($"ClientVersion '{clientVersion}' was not found in environment '{environment}', branch '{branch}'. It exists in: {where}");
+            }
+
+            throw new InvalidOperationException($"Unknown ClientVersion '{clientVersion}' in environment '{environment}', branch '{branch}'. {KnownVersionsHint(environment, branch)}");
+        }
+
+        var info = patch.Value;
+        if (!ProtocolVersions.TryGetGssVersion(info.GssProtocolVersion, out var gssVersion) ||
+            !ProtocolVersions.TryGetMatrixVersion(info.MatrixProtocolVersion, out var matrixVersion))
+        {
+            throw new InvalidOperationException($"ClientVersion '{clientVersion}' maps to unknown protocol versions (GSS raw {info.GssProtocolVersion}, Matrix raw {info.MatrixProtocolVersion})");
+        }
+
+        settings.GssProtocolVersion = gssVersion;
+        settings.MatrixProtocolVersion = matrixVersion;
+    }
+
+    /// <summary>
+    ///     Build the "known versions" part of the unknown-version error: the latest versions of the
+    ///     configured environment/branch, or the available environment/branch combinations when the
+    ///     configured combination itself is unknown.
+    /// </summary>
+    private static string KnownVersionsHint(string environment, string branch)
+    {
+        var versions = Patches.All
+            .Where(p => string.Equals(p.Environment, environment, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(p.Branch, branch, StringComparison.OrdinalIgnoreCase))
+            .Select(p => p.Version)
+            .Distinct()
+            .ToList();
+
+        if (versions.Count == 0)
+        {
+            var combos = string.Join(", ", Patches.All
+                .GroupBy(p => $"{p.Environment}/{p.Branch}")
+                .Select(g => g.Key)
+                .OrderBy(s => s, StringComparer.OrdinalIgnoreCase));
+            return $"Environment '{environment}', branch '{branch}' is unknown. Known combinations: {combos}";
+        }
+
+        return $"Known versions include: {string.Join(", ", versions.TakeLast(10))}";
     }
 }

@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Linq;
 using System.Numerics;
-using AeroMessages.GSS.V66.Character;
-using AeroMessages.GSS.V66.Character.Command;
-using AeroMessages.GSS.V66.Character.Event;
+using Aero.Protocol;
+using AeroMessages.GSS.Character;
+using AeroMessages.GSS.Character.Command;
+using AeroMessages.GSS.Character.Event;
 using GameServer.Entities.Character;
-using GameServer.Enums.GSS.Character;
 using GameServer.Extensions;
 using GameServer.Packets;
 using GameServer.StaticDB;
@@ -14,7 +14,7 @@ using Serilog;
 
 namespace GameServer.Controllers.Character;
 
-[ControllerID(Enums.GSS.Controllers.Character_CombatController)]
+[Typecode(GssCharacterView.CombatController)]
 public class CombatController : Base
 {
     private ILogger _logger;
@@ -24,20 +24,20 @@ public class CombatController : Base
         _logger = logger.ForContext<CharacterEntity>();
     }
 
-    [MessageID((byte)Commands.FireInputIgnored)]
+    [MessageID(GssCharacterCommand.FireInputIgnored)]
     public void FireInputIgnored(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         // TODO: Implement
     }
 
-    [MessageID((byte)Commands.FireBurst)]
+    [MessageID(GssCharacterCommand.FireBurst)]
     public void FireBurst(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var query = packet.Unpack<FireBurst>();
         player.CharacterEntity.SetFireBurst(query.Time);
     }
 
-    [MessageID((byte)Commands.FireWeaponProjectile)]
+    [MessageID(GssCharacterCommand.FireWeaponProjectile)]
     public void FireWeaponProjectile(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var fireWeaponProjectile = packet.Unpack<FireWeaponProjectile>();
@@ -56,21 +56,21 @@ public class CombatController : Base
         client.NetChannels[ChannelType.ReliableGss].SendMessage(weaponProjectileFired, player.CharacterEntity.EntityId);
     }
 
-    [MessageID((byte)Commands.FireEnd)]
+    [MessageID(GssCharacterCommand.FireEnd)]
     public void FireEnd(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var query = packet.Unpack<FireEnd>();
         player.CharacterEntity.SetFireEnd(query.Time);
     }
 
-    [MessageID((byte)Commands.FireCancel)]
+    [MessageID(GssCharacterCommand.FireCancel)]
     public void FireCancel(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var query = packet.Unpack<FireCancel>();
         player.CharacterEntity.SetFireCancel(query.Time);
     }
 
-    [MessageID((byte)Commands.UseScope)]
+    [MessageID(GssCharacterCommand.UseScope)]
     public void UseScope(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var query = packet.Unpack<UseScope>();
@@ -81,7 +81,7 @@ public class CombatController : Base
         });
     }
 
-    [MessageID((byte)Commands.SelectWeapon)]
+    [MessageID(GssCharacterCommand.SelectWeapon)]
     public void SelectWeapon(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var query = packet.Unpack<SelectWeapon>();
@@ -94,7 +94,7 @@ public class CombatController : Base
         });
     }
 
-    [MessageID((byte)Commands.SelectFireMode)]
+    [MessageID(GssCharacterCommand.SelectFireMode)]
     public void SelectFireMode(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var query = packet.Unpack<SelectFireMode>();
@@ -105,21 +105,21 @@ public class CombatController : Base
         });
     }
 
-    [MessageID((byte)Commands.ReloadWeapon)]
+    [MessageID(GssCharacterCommand.ReloadWeapon)]
     public void ReloadWeapon(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var query = packet.Unpack<ReloadWeapon>();
         player.CharacterEntity.SetWeaponReloaded(query.Time);
     }
 
-    [MessageID((byte)Commands.CancelReload)]
+    [MessageID(GssCharacterCommand.CancelReload)]
     public void CancelReload(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var query = packet.Unpack<CancelReload>();
         player.CharacterEntity.SetWeaponReloadCancelled(query.Time);
     }
 
-    [MessageID((byte)Commands.ActivateConsumable)]
+    [MessageID(GssCharacterCommand.ActivateConsumable)]
     public void ActivateConsumable(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var query = packet.Unpack<ActivateConsumable>();
@@ -167,7 +167,7 @@ public class CombatController : Base
         }
     }
 
-    [MessageID((byte)Commands.ActivateAbility)]
+    [MessageID(GssCharacterCommand.ActivateAbility)]
     public void ActivateAbility(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var activateAbility = packet.Unpack<ActivateAbility>();

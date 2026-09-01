@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
-using AeroMessages.GSS.V66.Character;
+using AeroMessages.GSS.Character;
 using GameServer.Entities.Character;
 using GameServer.Systems.CharacterLifecycle;
 using GameServer.Systems.SystemEvents;

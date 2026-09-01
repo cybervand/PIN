@@ -4,9 +4,10 @@ using System.Linq;
 using System.Numerics;
 using System.Threading;
 using Aero.Gen;
-using AeroMessages.GSS.V66.Character;
-using AeroMessages.GSS.V66.Character.Event;
-using AeroMessages.GSS.V66.Melding.View;
+using Aero.Protocol;
+using AeroMessages.GSS.Character;
+using AeroMessages.GSS.Character.Event;
+using AeroMessages.GSS.Melding.View;
 using GameServer.Data;
 using GameServer.Entities;
 using GameServer.Entities.AreaVisualData;
@@ -20,6 +21,7 @@ using GameServer.Entities.Thumper;
 using GameServer.Entities.Turret;
 using GameServer.Entities.Vehicle;
 using GameServer.Extensions;
+using GameServer.Protocol;
 using GameServer.StaticDB;
 using GameServer.StaticDB.Records.aptfs;
 using GameServer.StaticDB.Records.customdata;
@@ -87,14 +89,14 @@ public class EntityManager
         vehicleEntity.Orientation = orientation;
         vehicleEntity.Load(vehicleInfo);
         position.Z += vehicleInfo.SpawnHeight;
-        vehicleEntity.SetSpawnPose(new AeroMessages.GSS.V66.Vehicle.Controller.SpawnPoseData()
+        vehicleEntity.SetSpawnPose(new AeroMessages.GSS.Vehicle.Controller.SpawnPoseData()
         {
             Position = position,
             Rotation = orientation,
             Direction = vehicleEntity.AimDirection,
             Time = _shard.CurrentTime,
         });
-        vehicleEntity.SetPoseData(new AeroMessages.GSS.V66.Vehicle.Command.MovementInput()
+        vehicleEntity.SetPoseData(new AeroMessages.GSS.Vehicle.Command.MovementInput()
         {
             Position = position,
             Rotation = orientation,
@@ -534,7 +536,7 @@ public class EntityManager
 
     public void Add(IEntity entity)
     {
-        var guid = new Core.Data.EntityGuid(_serverId, _shard.CurrentTime, _counter++, (byte)Enums.GSS.Controllers.Character);
+        var guid = new Core.Data.EntityGuid(_serverId, _shard.CurrentTime, _counter++, (byte)AeroMessages.Common.Controller.Character);
         _ = _scopedPlayersByEntity.TryAdd(guid.Full, []);
         _shard.Entities.Add(guid.Full, entity);
         OnAddedEntity(entity);
@@ -572,15 +574,23 @@ public class EntityManager
         }
     }
 
-    public void KeyframeRequest(INetworkClient client, IPlayer player, IEntity entity, Enums.GSS.Controllers typecode, uint clientChecksum)
+    public void KeyframeRequest(INetworkClient client, IPlayer player, IEntity entity, byte typecode, uint clientChecksum)
     {
+        WireIds.ResolveGssRoute(client.AssignedShard.Settings.GssProtocolVersion, typecode, out var ns, out var ordinal);
+
         switch (entity)
         {
             case CharacterEntity character:
                 bool isCharacterController = character.IsPlayerControlled && character.Player == player;
-                switch (typecode)
+                if (ns != GssTables.Ns.Character)
                 {
-                    case Enums.GSS.Controllers.Character_BaseController:
+                    _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
+                    break;
+                }
+
+                switch ((GssCharacterView)ordinal)
+                {
+                    case GssCharacterView.BaseController:
                         if (isCharacterController && character.Character_BaseController != null)
                         {
                             uint ourChecksum = character.Character_BaseController.SerializeToChecksum();
@@ -595,7 +605,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.Character_MissionAndMarkerController:
+                    case GssCharacterView.MissionAndMarkerController:
                         if (isCharacterController && character.Character_MissionAndMarkerController != null)
                         {
                             uint ourChecksum = character.Character_MissionAndMarkerController.SerializeToChecksum();
@@ -610,7 +620,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.Character_CombatController:
+                    case GssCharacterView.CombatController:
                         if (isCharacterController && character.Character_CombatController != null)
                         {
                             uint ourChecksum = character.Character_CombatController.SerializeToChecksum();
@@ -625,7 +635,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.Character_LocalEffectsController:
+                    case GssCharacterView.LocalEffectsController:
                         if (isCharacterController && character.Character_LocalEffectsController != null)
                         {
                             uint ourChecksum = character.Character_LocalEffectsController.SerializeToChecksum();
@@ -640,7 +650,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.Character_SpectatorController:
+                    case GssCharacterView.SpectatorController:
                         if (isCharacterController && character.Character_SpectatorController != null)
                         {
                             uint ourChecksum = character.Character_SpectatorController.SerializeToChecksum();
@@ -655,7 +665,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.Character_ObserverView:
+                    case GssCharacterView.ObserverView:
                         if (character.Character_ObserverView != null)
                         {
                             uint ourChecksum = character.Character_ObserverView.SerializeToChecksum();
@@ -670,7 +680,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.Character_EquipmentView:
+                    case GssCharacterView.EquipmentView:
                         if (character.Character_EquipmentView != null)
                         {
                             uint ourChecksum = character.Character_EquipmentView.SerializeToChecksum();
@@ -685,7 +695,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.Character_CombatView:
+                    case GssCharacterView.CombatView:
                         if (character.Character_CombatView != null)
                         {
                             uint ourChecksum = character.Character_CombatView.SerializeToChecksum();
@@ -700,7 +710,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.Character_MovementView:
+                    case GssCharacterView.MovementView:
                         if (character.Character_MovementView != null)
                         {
                             uint ourChecksum = character.Character_MovementView.SerializeToChecksum();
@@ -715,7 +725,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.Character_TinyObjectView:
+                    case GssCharacterView.TinyObjectView:
                         if (character.Character_TinyObjectView != null)
                         {
                             uint ourChecksum = character.Character_TinyObjectView.SerializeToChecksum();
@@ -731,16 +741,22 @@ public class EntityManager
 
                         break;
                     default:
-                        _logger.Warning("Unhandled KeyframeRequest for {TypeCode}", typecode);
+                        _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
                         break;
                 }
 
                 break;
 
             case MeldingEntity melding:
-                switch (typecode)
+                if (ns != GssTables.Ns.Melding)
                 {
-                    case Enums.GSS.Controllers.Melding_ObserverView:
+                    _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
+                    break;
+                }
+
+                switch ((GssMeldingView)ordinal)
+                {
+                    case GssMeldingView.ObserverView:
                         if (melding.Melding_ObserverView != null)
                         {
                             uint ourChecksum = melding.Melding_ObserverView.SerializeToChecksum();
@@ -756,15 +772,22 @@ public class EntityManager
 
                         break;
                     default:
-                        _logger.Warning("Unhandled KeyframeRequest for {TypeCode}", typecode);
+                        _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
                         break;
                 }
 
                 break;
+
             case MeldingBubbleEntity meldingBubble:
-                switch (typecode)
+                if (ns != GssTables.Ns.MeldingBubble)
                 {
-                    case Enums.GSS.Controllers.MeldingBubble_ObserverView:
+                    _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
+                    break;
+                }
+
+                switch ((GssMeldingBubbleView)ordinal)
+                {
+                    case GssMeldingBubbleView.ObserverView:
                         if (meldingBubble.MeldingBubble_ObserverView != null)
                         {
                             uint ourChecksum = meldingBubble.MeldingBubble_ObserverView.SerializeToChecksum();
@@ -780,15 +803,22 @@ public class EntityManager
 
                         break;
                     default:
-                        _logger.Warning("Unhandled KeyframeRequest for {TypeCode}", typecode);
+                        _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
                         break;
                 }
 
                 break;
+
             case AreaVisualDataEntity areaVisualData:
-                switch (typecode)
+                if (ns != GssTables.Ns.AreaVisualData)
                 {
-                    case Enums.GSS.Controllers.AreaVisualData_ObserverView:
+                    _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
+                    break;
+                }
+
+                switch ((GssAreaVisualDataView)ordinal)
+                {
+                    case GssAreaVisualDataView.ObserverView:
                         if (areaVisualData.AreaVisualData_ObserverView != null)
                         {
                             uint ourChecksum = areaVisualData.AreaVisualData_ObserverView.SerializeToChecksum();
@@ -803,7 +833,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.AreaVisualData_ParticleEffectsView:
+                    case GssAreaVisualDataView.ParticleEffectsView:
                         if (areaVisualData.AreaVisualData_ParticleEffectsView != null)
                         {
                             uint ourChecksum = areaVisualData.AreaVisualData_ParticleEffectsView.SerializeToChecksum();
@@ -818,7 +848,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.AreaVisualData_MapMarkerView:
+                    case GssAreaVisualDataView.MapMarkerView:
                         if (areaVisualData.AreaVisualData_MapMarkerView != null)
                         {
                             uint ourChecksum = areaVisualData.AreaVisualData_MapMarkerView.SerializeToChecksum();
@@ -833,7 +863,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.AreaVisualData_TinyObjectView:
+                    case GssAreaVisualDataView.TinyObjectView:
                         if (areaVisualData.AreaVisualData_TinyObjectView != null)
                         {
                             uint ourChecksum = areaVisualData.AreaVisualData_TinyObjectView.SerializeToChecksum();
@@ -848,7 +878,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.AreaVisualData_LootObjectView:
+                    case GssAreaVisualDataView.LootObjectView:
                         if (areaVisualData.AreaVisualData_LootObjectView != null)
                         {
                             uint ourChecksum = areaVisualData.AreaVisualData_LootObjectView.SerializeToChecksum();
@@ -863,7 +893,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.AreaVisualData_ForceShieldView:
+                    case GssAreaVisualDataView.ForceShieldView:
                         if (areaVisualData.AreaVisualData_ForceShieldView != null)
                         {
                             uint ourChecksum = areaVisualData.AreaVisualData_ForceShieldView.SerializeToChecksum();
@@ -879,16 +909,23 @@ public class EntityManager
 
                         break;
                     default:
-                        _logger.Warning("Unhandled KeyframeRequest for {TypeCode}", typecode);
+                        _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
                         break;
                 }
 
                 break;
+
             case VehicleEntity vehicle:
                 bool isVehicleController = vehicle.IsPlayerControlled && vehicle.ControllingPlayer == player;
-                switch (typecode)
+                if (ns != GssTables.Ns.Vehicle)
                 {
-                    case Enums.GSS.Controllers.Vehicle_BaseController:
+                    _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
+                    break;
+                }
+
+                switch ((GssVehicleView)ordinal)
+                {
+                    case GssVehicleView.BaseController:
                         if (isVehicleController && vehicle.Vehicle_BaseController != null)
                         {
                             uint ourChecksum = vehicle.Vehicle_BaseController.SerializeToChecksum();
@@ -903,7 +940,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.Vehicle_CombatController:
+                    case GssVehicleView.CombatController:
                         if (isVehicleController && vehicle.Vehicle_CombatController != null)
                         {
                             uint ourChecksum = vehicle.Vehicle_CombatController.SerializeToChecksum();
@@ -918,7 +955,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.Vehicle_ObserverView:
+                    case GssVehicleView.ObserverView:
                         if (vehicle.Vehicle_ObserverView != null)
                         {
                             uint ourChecksum = vehicle.Vehicle_ObserverView.SerializeToChecksum();
@@ -933,7 +970,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.Vehicle_CombatView:
+                    case GssVehicleView.CombatView:
                         if (vehicle.Vehicle_CombatView != null)
                         {
                             uint ourChecksum = vehicle.Vehicle_CombatView.SerializeToChecksum();
@@ -948,7 +985,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.Vehicle_MovementView:
+                    case GssVehicleView.MovementView:
                         if (vehicle.Vehicle_MovementView != null)
                         {
                             uint ourChecksum = vehicle.Vehicle_MovementView.SerializeToChecksum();
@@ -964,16 +1001,23 @@ public class EntityManager
 
                         break;
                     default:
-                        _logger.Warning("Unhandled KeyframeRequest for {typecode}", typecode);
+                        _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
                         break;
                 }
 
                 break;
+
             case DeployableEntity deployable:
-                switch (typecode)
+                if (ns != GssTables.Ns.Deployable)
                 {
-                    // TODO: Deployable_HardpointView
-                    case Enums.GSS.Controllers.Deployable_ObserverView:
+                    _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
+                    break;
+                }
+
+                switch ((GssDeployableView)ordinal)
+                {
+                    // TODO: GssDeployableView.HardpointView
+                    case GssDeployableView.ObserverView:
                         if (deployable.Deployable_ObserverView != null)
                         {
                             uint ourChecksum = deployable.Deployable_ObserverView.SerializeToChecksum();
@@ -989,16 +1033,23 @@ public class EntityManager
 
                         break;
                     default:
-                        _logger.Warning("Unhandled KeyframeRequest for {typecode}", typecode);
+                        _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
                         break;
                 }
 
                 break;
+
             case TurretEntity turret:
                 bool isTurretController = turret.IsPlayerControlled && turret.ControllingPlayer == player;
-                switch (typecode)
+                if (ns != GssTables.Ns.Turret)
                 {
-                    case Enums.GSS.Controllers.Turret_BaseController:
+                    _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
+                    break;
+                }
+
+                switch ((GssTurretView)ordinal)
+                {
+                    case GssTurretView.BaseController:
                         if (isTurretController && turret.Turret_BaseController != null)
                         {
                             uint ourChecksum = turret.Turret_BaseController.SerializeToChecksum();
@@ -1013,7 +1064,7 @@ public class EntityManager
                         }
 
                         break;
-                    case Enums.GSS.Controllers.Turret_ObserverView:
+                    case GssTurretView.ObserverView:
                         if (turret.Turret_ObserverView != null)
                         {
                             uint ourChecksum = turret.Turret_ObserverView.SerializeToChecksum();
@@ -1028,18 +1079,23 @@ public class EntityManager
                         }
 
                         break;
-
                     default:
-                        _logger.Warning("Unhandled KeyframeRequest for {typecode}", typecode);
-
+                        _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
                         break;
                 }
 
                 break;
+
             case OutpostEntity outpost:
-                switch (typecode)
+                if (ns != GssTables.Ns.Outpost)
                 {
-                    case Enums.GSS.Controllers.Outpost_ObserverView:
+                    _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
+                    break;
+                }
+
+                switch ((GssOutpostView)ordinal)
+                {
+                    case GssOutpostView.ObserverView:
                         if (outpost.Outpost_ObserverView != null)
                         {
                             uint ourChecksum = outpost.Outpost_ObserverView.SerializeToChecksum();
@@ -1055,15 +1111,22 @@ public class EntityManager
 
                         break;
                     default:
-                        _logger.Warning("Unhandled KeyframeRequest for {typecode}", typecode);
+                        _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
                         break;
                 }
 
                 break;
+
             case ThumperEntity thumper:
-                switch (typecode)
+                if (ns != GssTables.Ns.ResourceNode)
                 {
-                    case Enums.GSS.Controllers.ResourceNode_ObserverView:
+                    _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
+                    break;
+                }
+
+                switch ((GssResourceNodeView)ordinal)
+                {
+                    case GssResourceNodeView.ObserverView:
                         if (thumper.ResourceNode_ObserverView != null)
                         {
                             uint ourChecksum = thumper.ResourceNode_ObserverView.SerializeToChecksum();
@@ -1079,15 +1142,22 @@ public class EntityManager
 
                         break;
                     default:
-                        _logger.Warning("Unhandled KeyframeRequest for {typecode}", typecode);
+                        _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
                         break;
                 }
 
                 break;
+
             case CarryableEntity carryable:
-                switch (typecode)
+                if (ns != GssTables.Ns.CarryableObject)
                 {
-                    case Enums.GSS.Controllers.CarryableObject_ObserverView:
+                    _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
+                    break;
+                }
+
+                switch ((GssCarryableObjectView)ordinal)
+                {
+                    case GssCarryableObjectView.ObserverView:
                         if (carryable.CarryableObject_ObserverView != null)
                         {
                             uint ourChecksum = carryable.CarryableObject_ObserverView.SerializeToChecksum();
@@ -1103,13 +1173,14 @@ public class EntityManager
 
                         break;
                     default:
-                        _logger.Warning("Unhandled KeyframeRequest for {typecode}", typecode);
+                        _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
                         break;
                 }
 
                 break;
+
             default:
-                _logger.Warning("Unhandled KeyframeRequest for {typecode}", typecode);
+                _logger.Warning("Unhandled KeyframeRequest for {TypeCode} (ns-{Ns} view-{ViewOrdinal})", typecode, ns, ordinal);
                 break;
         }
     }

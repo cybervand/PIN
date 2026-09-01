@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using AeroMessages.GSS.V66;
-using AeroMessages.GSS.V66.Character;
+using AeroMessages.GSS;
+using AeroMessages.GSS.Character;
 using GameServer.Enums;
 using GameServer.StaticDB;
 using Serilog;

@@ -1,4 +1,4 @@
-using AeroMessages.GSS.V66;
+using AeroMessages.GSS;
 using GameServer.Entities;
 using Serilog;
 

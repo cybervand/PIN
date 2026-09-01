@@ -1,8 +1,8 @@
 using System;
 using System.Numerics;
 using AeroMessages.Common;
-using AeroMessages.GSS.V66;
-using AeroMessages.GSS.V66.Deployable.View;
+using AeroMessages.GSS;
+using AeroMessages.GSS.Deployable.View;
 using GameServer.Entities.Character;
 using GameServer.Entities.Turret;
 using GameServer.Systems.Aptitude;

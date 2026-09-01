@@ -1,6 +1,8 @@
-﻿using System;
-using System.Linq;
+﻿#nullable enable
+using System;
+using System.Collections.Generic;
 using System.Reflection;
+using Aero.Protocol;
 using GameServer.Extensions;
 using GameServer.Packets;
 using Serilog;
@@ -9,29 +11,41 @@ namespace GameServer.Controllers;
 
 public abstract class Base
 {
+    private static readonly ProtocolRoute CharacterRoute = new(GssTables.Ns.Character, GssTables.Kind.Command, typeof(GssCharacterCommand));
+    private static readonly ProtocolRoute VehicleRoute = new(GssTables.Ns.Vehicle, GssTables.Kind.Command, typeof(GssVehicleCommand));
+    private static readonly ProtocolRoute TurretRoute = new(GssTables.Ns.Turret, GssTables.Kind.Command, typeof(GssTurretCommand));
+    private static readonly ProtocolRoute RootRoute = new(GssTables.Ns.Root, GssTables.Kind.Message, typeof(GssMessage));
+
+    private Dictionary<byte, MethodInfo>? _dispatch;
+    private GssVersion _dispatchVersion;
+
     protected Base()
     {
-        try
+        var attr = GetType().GetAttribute<TypecodeAttribute>();
+
+        if (attr == null)
         {
-            ControllerID = GetType().GetAttribute<ControllerIDAttribute>().ControllerID;
+            throw new MissingMemberException(GetType().FullName, "Missing required Typecode attribute");
         }
-        catch
-        {
-            throw new MissingMemberException(GetType().FullName, "Missing required ControllerID attribute");
-        }
+
+        Namespace = attr.Namespace;
+        ViewOrdinal = attr.ViewOrdinal;
+        TypecodeName = attr.TypecodeName;
     }
 
-    public Enums.GSS.Controllers ControllerID { get; }
+    public int Namespace { get; }
+    public int ViewOrdinal { get; }
+    public string TypecodeName { get; }
 
     public abstract void Init(INetworkClient client, IPlayer player, IShard shard, ILogger logger);
 
     public void HandlePacket(INetworkClient client, IPlayer player, ulong entityId, byte msgId, GamePacket packet, ILogger logger)
     {
-        var method = ReflectionUtils.FindMethodsByAttribute<MessageIDAttribute>(this).FirstOrDefault(mi => mi.GetAttribute<MessageIDAttribute>().MsgID == msgId);
+        var version = client.AssignedShard.Settings.GssProtocolVersion;
 
-        if (method == null)
+        if (!GetDispatchTable(version).TryGetValue(msgId, out var method))
         {
-            logger.Warning("Unhandled message {ControllerName}::{MessageName} (tc-{ControllerTypecode} mid-{MessageId}) from Entity 0x{EntityId:X8}", Enum.GetName(typeof(Enums.GSS.Controllers), ControllerID), GetUnhandledMessageLookup(ControllerID, msgId), (byte)ControllerID, msgId, entityId);
+            logger.Warning("Unhandled message {TypecodeName}::{MessageName} (tc-{Typecode} mid-{MessageId}) from Entity 0x{EntityId:X8}", TypecodeName, GetUnhandledMessageLookup(version, msgId), GetTypecode(version), msgId, entityId);
             logger.Warning(">  {PacketData}", BitConverter.ToString(packet.Peek(packet.BytesRemaining).ToArray()).Replace("-", " "));
             return;
         }
@@ -56,21 +70,79 @@ public abstract class Base
         logger.Warning(">  {PacketData}", BitConverter.ToString(packet.PacketData.ToArray()).Replace("-", " "));
     }
 
-    private string GetUnhandledMessageLookup(Enums.GSS.Controllers typecode, byte messageId)
+    private static ProtocolRoute? GetProtocolRoute(int ns)
     {
-        if (typecode > Enums.GSS.Controllers.Character && typecode < Enums.GSS.Controllers.Character_DynamicProjectileView)
+        switch (ns)
         {
-            return Enum.GetName(typeof(Enums.GSS.Character.Commands), messageId) ?? "Unknown";
+            case GssTables.Ns.Character:
+                return CharacterRoute;
+            case GssTables.Ns.Vehicle:
+                return VehicleRoute;
+            case GssTables.Ns.Turret:
+                return TurretRoute;
+            case GssTables.Ns.Root:
+                return RootRoute;
+            default:
+                return null;
         }
-        else if (typecode > Enums.GSS.Controllers.Vehicle && typecode < Enums.GSS.Controllers.Vehicle_MovementView)
+    }
+
+    private byte GetTypecode(GssVersion version)
+    {
+        return ViewOrdinal >= 0
+            ? GssTables.GetMessageId(version, Namespace, GssTables.Kind.View, ViewOrdinal)
+            : GssTables.GetNamespaceTypecode(version, Namespace);
+    }
+
+    private Dictionary<byte, MethodInfo> GetDispatchTable(GssVersion version)
+    {
+        if (_dispatch != null && _dispatchVersion == version)
         {
-            return Enum.GetName(typeof(Enums.GSS.Vehicle.Commands), messageId) ?? "Unknown";
-        }
-        else if (typecode > Enums.GSS.Controllers.Turret && typecode < Enums.GSS.Controllers.Turret_ObserverView)
-        {
-            return Enum.GetName(typeof(Enums.GSS.Turret.Commands), messageId) ?? "Unknown";
+            return _dispatch;
         }
 
-        return "Unknown";
+        var table = new Dictionary<byte, MethodInfo>();
+        var route = GetProtocolRoute(Namespace);
+
+        if (route != null)
+        {
+            foreach (var method in ReflectionUtils.FindMethodsByAttribute<MessageIDAttribute>(this))
+            {
+                var protocolId = method.GetAttribute<MessageIDAttribute>().ProtocolId;
+
+                if (protocolId.GetType() != route.ProtocolEnum)
+                {
+                    continue;
+                }
+
+                var wireId = GssTables.GetMessageId(version, route.Namespace, route.Kind, Convert.ToInt32(protocolId));
+
+                if (wireId != 0)
+                {
+                    table[wireId] = method;
+                }
+            }
+        }
+
+        _dispatch = table;
+        _dispatchVersion = version;
+        return table;
     }
+
+    private string GetUnhandledMessageLookup(GssVersion version, byte messageId)
+    {
+        var route = GetProtocolRoute(Namespace);
+
+        if (route == null)
+        {
+            return "Unknown";
+        }
+
+        var lookupTypecode = GssTables.GetNamespaceTypecode(version, route.Namespace);
+        var ordinal = GssTables.FindMessage(version, lookupTypecode, route.Kind, messageId);
+
+        return ordinal >= 0 ? Enum.GetName(route.ProtocolEnum, ordinal) ?? "Unknown" : "Unknown";
+    }
+
+    private sealed record ProtocolRoute(int Namespace, int Kind, Type ProtocolEnum);
 }

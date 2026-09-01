@@ -1,4 +1,4 @@
-using AeroMessages.GSS.V66.Character;
+using AeroMessages.GSS.Character;
 
 namespace GameServer.Systems.Admin.Commands;
 

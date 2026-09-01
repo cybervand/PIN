@@ -6,8 +6,10 @@ using System.Linq;
 using System.Threading;
 using Aero.Gen;
 using Aero.Gen.Attributes;
+using Aero.Protocol;
 using GameServer.Extensions;
 using GameServer.Packets;
+using GameServer.Protocol;
 using Serilog;
 using Shared.Udp;
 
@@ -29,7 +31,7 @@ public class Channel
     private readonly ConcurrentQueue<Memory<byte>> _outgoingPackets;
     private readonly SortedDictionary<ushort, GamePacket> _incomingSplitMessagePackets;
 
-    private Channel(ChannelType channelType, bool isSequenced, bool isReliable,  bool isGSS, INetworkClient networkClient, ILogger logger)
+    private Channel(ChannelType channelType, bool isSequenced, bool isReliable,  bool isGSS, INetworkClient networkClient, ILogger logger, GssVersion gssProtocolVersion, MatrixVersion matrixProtocolVersion)
     {
         Type = channelType;
         IsSequenced = isSequenced;
@@ -37,6 +39,8 @@ public class Channel
         IsGSS = isGSS;
         _client = networkClient;
         _logger = logger;
+        GssProtocolVersion = gssProtocolVersion;
+        MatrixProtocolVersion = matrixProtocolVersion;
         CurrentSequenceNumber = 1;
         LastAck = 0;
 
@@ -53,19 +57,21 @@ public class Channel
     private bool IsSequenced { get; }
     private bool IsReliable { get; }
     private bool IsGSS { get; }
+    private GssVersion GssProtocolVersion { get; }
+    private MatrixVersion MatrixProtocolVersion { get; }
     private ushort CurrentSequenceNumber { get; set; }
     private DateTime LastActivity { get; set; }
     private ushort LastAck { get; set; }
     private bool InSplitMode { get; set; }
 
-    public static Dictionary<ChannelType, Channel> GetChannels(INetworkClient client, ILogger logger)
+    public static Dictionary<ChannelType, Channel> GetChannels(INetworkClient client, ILogger logger, GssVersion gssProtocolVersion, MatrixVersion matrixProtocolVersion)
     {
         return new Dictionary<ChannelType, Channel>
                {
-                   { ChannelType.Control, new Channel(ChannelType.Control, false, false, false, client, logger) },
-                   { ChannelType.Matrix, new Channel(ChannelType.Matrix, true, true,  false, client, logger) },
-                   { ChannelType.ReliableGss, new Channel(ChannelType.ReliableGss, true, true, true, client, logger) },
-                   { ChannelType.UnreliableGss, new Channel(ChannelType.UnreliableGss, true, false, true, client, logger) }
+                   { ChannelType.Control, new Channel(ChannelType.Control, false, false, false, client, logger, gssProtocolVersion, matrixProtocolVersion) },
+                   { ChannelType.Matrix, new Channel(ChannelType.Matrix, true, true,  false, client, logger, gssProtocolVersion, matrixProtocolVersion) },
+                   { ChannelType.ReliableGss, new Channel(ChannelType.ReliableGss, true, true, true, client, logger, gssProtocolVersion, matrixProtocolVersion) },
+                   { ChannelType.UnreliableGss, new Channel(ChannelType.UnreliableGss, true, false, true, client, logger, gssProtocolVersion, matrixProtocolVersion) }
                };
     }
 
@@ -158,15 +164,20 @@ public class Channel
     public bool SendChanges<TViewOrController>(TViewOrController view, ulong entityId)
         where TViewOrController : class, IAeroViewInterface
     {
-        if (typeof(TViewOrController).GetCustomAttributes(typeof(AeroMessageIdAttribute), false).FirstOrDefault() is not AeroMessageIdAttribute aeroMsgAttr)
+        if (typeof(TViewOrController).GetCustomAttributes(typeof(AeroMessageIdAttribute), false).FirstOrDefault() is not AeroMessageIdAttribute)
         {
             throw new ArgumentException($"The passed Aero class is required to be annotated with {nameof(AeroMessageIdAttribute)} (Type: {typeof(TViewOrController).FullName})");
         }
 
+        if (!WireIds.TryGetGssWireIds(typeof(TViewOrController), GssProtocolVersion, out var typecode, out _))
+        {
+            _logger.Error("Could not resolve GSS wire id for {Type} in protocol version {Version}", typeof(TViewOrController).FullName, GssProtocolVersion);
+            return false;
+        }
+
         // Generate and send
-        var typeCode = (Enums.GSS.Controllers)aeroMsgAttr.ControllerId;
         view.SerializeChangesToMemory(out var packetMemory);
-        return SendPacketMemory(entityId, 1, typeCode, ref packetMemory);
+        return SendPacketMemory(entityId, 1, typecode, ref packetMemory);
     }
 
     /// <summary>
@@ -181,27 +192,32 @@ public class Channel
     public bool SendChanges<TViewOrController>(TViewOrController view, ulong entityId, Memory<byte> packetMemory)
         where TViewOrController : class, IAeroViewInterface
     {
-        if (typeof(TViewOrController).GetCustomAttributes(typeof(AeroMessageIdAttribute), false).FirstOrDefault() is not AeroMessageIdAttribute aeroMsgAttr)
+        if (typeof(TViewOrController).GetCustomAttributes(typeof(AeroMessageIdAttribute), false).FirstOrDefault() is not AeroMessageIdAttribute)
         {
             throw new ArgumentException($"The passed Aero class is required to be annotated with {nameof(AeroMessageIdAttribute)} (Type: {typeof(TViewOrController).FullName})");
         }
 
+        if (!WireIds.TryGetGssWireIds(typeof(TViewOrController), GssProtocolVersion, out var typecode, out _))
+        {
+            _logger.Error("Could not resolve GSS wire id for {Type} in protocol version {Version}", typeof(TViewOrController).FullName, GssProtocolVersion);
+            return false;
+        }
+
         // Send
-        var typeCode = (Enums.GSS.Controllers)aeroMsgAttr.ControllerId;
-        return SendPacketMemory(entityId, 1, typeCode, ref packetMemory);
+        return SendPacketMemory(entityId, 1, typecode, ref packetMemory);
     }
 
     /// <summary>
     ///     Send a GSS View Checksum message
     /// </summary>
     /// <param name="entityId">Id of the entity the View represents</param>
-    /// <param name="controllerId">View type the checksum is for</param>
+    /// <param name="typecode">View type the checksum is for</param>
     /// <param name="checksum">Checksum value</param>
     /// <returns>true if the operation succeeded, false in all other cases</returns>
-    public bool SendChecksum(ulong entityId, Enums.GSS.Controllers controllerId, uint checksum)
+    public bool SendChecksum(ulong entityId, byte typecode, uint checksum)
     {
         var messageData = Serializer.WritePrimitive(checksum);
-        return SendPacketMemory(entityId, 2, controllerId, ref messageData);
+        return SendPacketMemory(entityId, 2, typecode, ref messageData);
     }
 
     /// <summary>
@@ -215,7 +231,7 @@ public class Channel
     public bool SendViewKeyframe<TView>(TView view, ulong entityId)
         where TView : class, IAero
     {
-        if (typeof(TView).GetCustomAttributes(typeof(AeroMessageIdAttribute), false).FirstOrDefault() is not AeroMessageIdAttribute aeroMsgAttr)
+        if (typeof(TView).GetCustomAttributes(typeof(AeroMessageIdAttribute), false).FirstOrDefault() is not AeroMessageIdAttribute)
         {
             throw new ArgumentException($"The passed Aero view is required to be annotated with {nameof(AeroMessageIdAttribute)} (Type: {typeof(TView).FullName})");
         }
@@ -230,10 +246,15 @@ public class Channel
             throw new ArgumentException($"The AeroType should be View to send View Keyframe. Received {aeroAttr.AeroType} instead. (Type: {typeof(TView).FullName})");
         }
 
+        if (!WireIds.TryGetGssWireIds(typeof(TView), GssProtocolVersion, out var wireTypecode, out _))
+        {
+            _logger.Error("Could not resolve GSS wire id for {Type} in protocol version {Version}", typeof(TView).FullName, GssProtocolVersion);
+            return false;
+        }
+
         // Generate and send
         view.SerializeToMemory(out var packetMemory);
-        var typecode = (Enums.GSS.Controllers)aeroMsgAttr.ControllerId;
-        return SendPacketMemory(entityId, 3, typecode, ref packetMemory);
+        return SendPacketMemory(entityId, 3, wireTypecode, ref packetMemory);
     }
 
     /// <summary>
@@ -247,7 +268,7 @@ public class Channel
     public bool SendViewScopeOut<TView>(TView view, ulong entityId)
         where TView : class, IAero
     {
-        if (typeof(TView).GetCustomAttributes(typeof(AeroMessageIdAttribute), false).FirstOrDefault() is not AeroMessageIdAttribute aeroMsgAttr)
+        if (typeof(TView).GetCustomAttributes(typeof(AeroMessageIdAttribute), false).FirstOrDefault() is not AeroMessageIdAttribute)
         {
             throw new ArgumentException($"The passed Aero view is required to be annotated with {nameof(AeroMessageIdAttribute)} (Type: {typeof(TView).FullName})");
         }
@@ -262,10 +283,15 @@ public class Channel
             throw new ArgumentException($"The AeroType should be View to send View ScopeOut. Received {aeroAttr.AeroType} instead. (Type: {typeof(TView).FullName})");
         }
 
+        if (!WireIds.TryGetGssWireIds(typeof(TView), GssProtocolVersion, out var wireTypecode, out _))
+        {
+            _logger.Error("Could not resolve GSS wire id for {Type} in protocol version {Version}", typeof(TView).FullName, GssProtocolVersion);
+            return false;
+        }
+
         // Generate and send
-        var controllerId = (Enums.GSS.Controllers)aeroMsgAttr.ControllerId;
         var messageData = new Memory<byte>([]);
-        return SendPacketMemory(entityId, 6, controllerId, ref messageData);
+        return SendPacketMemory(entityId, 6, wireTypecode, ref messageData);
     }
 
     /// <summary>
@@ -280,7 +306,7 @@ public class Channel
     public bool SendControllerKeyframe<TController>(TController controller, ulong entityId, ulong playerId)
         where TController : class, IAero
     {
-        if (typeof(TController).GetCustomAttributes(typeof(AeroMessageIdAttribute), false).FirstOrDefault() is not AeroMessageIdAttribute aeroMsgAttr)
+        if (typeof(TController).GetCustomAttributes(typeof(AeroMessageIdAttribute), false).FirstOrDefault() is not AeroMessageIdAttribute)
         {
             throw new ArgumentException($"The passed Aero controller is required to be annotated with {nameof(AeroMessageIdAttribute)} (Type: {typeof(TController).FullName})");
         }
@@ -295,13 +321,18 @@ public class Channel
             throw new ArgumentException($"The AeroType should be Controller to send Controller Keyframe. Received {aeroAttr.AeroType} instead. (Type: {typeof(TController).FullName})");
         }
 
+        if (!WireIds.TryGetGssWireIds(typeof(TController), GssProtocolVersion, out var wireTypecode, out _))
+        {
+            _logger.Error("Could not resolve GSS wire id for {Type} in protocol version {Version}", typeof(TController).FullName, GssProtocolVersion);
+            return false;
+        }
+
         // Generate and send
-        var typecode = (Enums.GSS.Controllers)aeroMsgAttr.ControllerId;
         controller.SerializeToMemory(out var packetMemory);
         var messageData = new Memory<byte>(new byte[8 + packetMemory.Length]);
         packetMemory.CopyTo(messageData[8..]);
         Serializer.WritePrimitive(playerId).CopyTo(messageData);
-        return SendPacketMemory(entityId, 4, typecode, ref messageData);
+        return SendPacketMemory(entityId, 4, wireTypecode, ref messageData);
     }
 
     /// <summary>
@@ -316,7 +347,7 @@ public class Channel
     public bool SendControllerRemove<TController>(TController controller, ulong entityId, ulong playerId)
         where TController : class, IAero
     {
-        if (typeof(TController).GetCustomAttributes(typeof(AeroMessageIdAttribute), false).FirstOrDefault() is not AeroMessageIdAttribute aeroMsgAttr)
+        if (typeof(TController).GetCustomAttributes(typeof(AeroMessageIdAttribute), false).FirstOrDefault() is not AeroMessageIdAttribute)
         {
             throw new ArgumentException($"The passed Aero controller is required to be annotated with {nameof(AeroMessageIdAttribute)} (Type: {typeof(TController).FullName})");
         }
@@ -331,11 +362,16 @@ public class Channel
             throw new ArgumentException($"The AeroType should be Controller to send Controller Keyframe. Received {aeroAttr.AeroType} instead. (Type: {typeof(TController).FullName})");
         }
 
+        if (!WireIds.TryGetGssWireIds(typeof(TController), GssProtocolVersion, out var wireTypecode, out _))
+        {
+            _logger.Error("Could not resolve GSS wire id for {Type} in protocol version {Version}", typeof(TController).FullName, GssProtocolVersion);
+            return false;
+        }
+
         // Generate and send
-        var controllerId = (Enums.GSS.Controllers)aeroMsgAttr.ControllerId;
         var messageData = new Memory<byte>(new byte[8]);
         Serializer.WritePrimitive(playerId).CopyTo(messageData);
-        return SendPacketMemory(entityId, 5, controllerId, ref messageData);
+        return SendPacketMemory(entityId, 5, wireTypecode, ref messageData);
     }
 
     /// <summary>
@@ -344,10 +380,9 @@ public class Channel
     /// <typeparam name="TNormal">The Aero class of AeroGenTypes.Normal</typeparam>
     /// <param name="message">The Aero message</param>
     /// <param name="entityId">For GSS Messages, Id of the entity the message is for</param>
-    /// <param name="messageIdOverride">Optional way to override the message ID</param>
     /// <returns>true if the operation succeeded, false in all other cases</returns>
     /// <exception cref="ArgumentException">The passed message does not have the AeroMessageIdAttribute, AeroAttribute, or it is not a AeroGenTypes.Normal</exception>
-    public bool SendMessage<TNormal>(TNormal message, ulong entityId = 0, byte messageIdOverride = 0)
+    public bool SendMessage<TNormal>(TNormal message, ulong entityId = 0)
         where TNormal : class, IAero
     {
         if (typeof(TNormal).GetCustomAttributes(typeof(AeroMessageIdAttribute), false).FirstOrDefault() is not AeroMessageIdAttribute aeroMessageIdAttribute)
@@ -366,26 +401,29 @@ public class Channel
         }
 
         var type = aeroMessageIdAttribute.Typ;
-        var messageId = (byte)aeroMessageIdAttribute.MessageId;
-        if (messageIdOverride != 0)
-        {
-            messageId = messageIdOverride;
-        }
 
         message.SerializeToMemory(out var packetMemory);
 
         switch (type)
         {
             case AeroMessageIdAttribute.MsgType.Matrix:
-                return SendPacketMemoryMatrix(messageId, ref packetMemory);
-            case AeroMessageIdAttribute.MsgType.GSS:
+                if (!WireIds.TryGetMatrixWireId(typeof(TNormal), MatrixProtocolVersion, out var matrixMessageId))
                 {
-                    var typecode = (Enums.GSS.Controllers)aeroMessageIdAttribute.ControllerId;
-                    return SendPacketMemory(entityId, messageId, typecode, ref packetMemory);
+                    _logger.Error("Could not resolve Matrix wire id for {Type} in protocol version {Version}", typeof(TNormal).FullName, MatrixProtocolVersion);
+                    return false;
                 }
 
+                return SendPacketMemoryMatrix(matrixMessageId, ref packetMemory);
+            case AeroMessageIdAttribute.MsgType.GSS:
+                if (!WireIds.TryGetGssWireIds(typeof(TNormal), GssProtocolVersion, out var typecode, out var gssMessageId))
+                {
+                    _logger.Error("Could not resolve GSS wire id for {Type} in protocol version {Version}", typeof(TNormal).FullName, GssProtocolVersion);
+                    return false;
+                }
+
+                return SendPacketMemory(entityId, gssMessageId, typecode, ref packetMemory);
             case AeroMessageIdAttribute.MsgType.Control:
-                return SendPacketMemoryMatrix(messageId, ref packetMemory); // Everything's gonna be just fine
+                return SendPacketMemoryMatrix((byte)aeroMessageIdAttribute.MessageId, ref packetMemory); // Everything's gonna be just fine
             default:
                 throw new ArgumentException("Message type not implemented");
         }
@@ -395,15 +433,15 @@ public class Channel
     ///     Send serialized data of a gss channel packet to the client
     /// </summary>
     /// <param name="entityId">Id of the entity the packet is for</param>
-    /// <param name="messageId">Message Id relative to the controllerId</param>
-    /// <param name="controllerId">Typecode of the entity matching the view or controller</param>
+    /// <param name="messageId">Message Id relative to the typecode</param>
+    /// <param name="typecode">Typecode of the entity matching the view or controller</param>
     /// <param name="packetToSend">Memory buffer</param>
     /// <param name="msgEnumType">Optionally, the enum type containing the message id may be specified for enhanced verbose-level logging</param>
     /// <returns>true if the operation succeeded, false in all other cases</returns>
     /// <exception cref="InvalidOperationException">If <see cref="msgEnumType" /> is not null and does not contain an element with a value equal to <see cref="messageId" /> </exception>
     private bool SendPacketMemory(ulong entityId,
                                   byte messageId,
-                                  Enums.GSS.Controllers controllerId,
+                                  byte typecode,
                                   ref Memory<byte> packetToSend,
                                   Type? msgEnumType = null)
     {
@@ -415,22 +453,22 @@ public class Channel
         Serializer.WritePrimitive(entityId).CopyTo(serializedData);
 
         // Intentionally overwrite first byte of Entity ID
-        Serializer.WritePrimitive((byte)controllerId).CopyTo(serializedData);
+        Serializer.WritePrimitive(typecode).CopyTo(serializedData);
         Serializer.WritePrimitive(messageId).CopyTo(serializedData[8..]);
 
         if (msgEnumType == null)
         {
-            _logger.Verbose("<-- {Channel}: Controller = {Controller} Entity = 0x{EntityId:X16} MsgID = 0x{MessageId:X2}",
+            _logger.Verbose("<-- {Channel}: Typecode = {Typecode} Entity = 0x{EntityId:X16} MsgID = 0x{MessageId:X2}",
                             Type,
-                            controllerId,
+                            typecode,
                             entityId,
                             messageId);
         }
         else
         {
-            _logger.Verbose("<-- {Channel}: Controller = {Controller} Entity = 0x{EntityId:X16} MsgID = {Message} (0x{MessageId:X2})",
+            _logger.Verbose("<-- {Channel}: Typecode = {Typecode} Entity = 0x{EntityId:X16} MsgID = {Message} (0x{MessageId:X2})",
                             Type,
-                            controllerId,
+                            typecode,
                             entityId,
                             Enum.Parse(msgEnumType,
                                        Enum.GetName(msgEnumType, messageId) ?? throw new InvalidOperationException($"Message enum type {msgEnumType.FullName} has no element with a value of {messageId}")),

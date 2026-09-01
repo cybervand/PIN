@@ -1,8 +1,8 @@
 using System;
 using AeroMessages.Common;
-using AeroMessages.GSS.V66;
-using AeroMessages.GSS.V66.Character.Command;
-using AeroMessages.GSS.V66.Generic;
+using AeroMessages.GSS;
+using AeroMessages.GSS.Character.Command;
+using AeroMessages.GSS.Generic;
 using GameServer.Entities;
 using GameServer.Entities.Character;
 using GameServer.Enums;

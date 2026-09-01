@@ -1,5 +1,5 @@
-using AeroMessages.GSS.V66.Character;
-using AeroMessages.GSS.V66.Character.Event;
+using AeroMessages.GSS.Character;
+using AeroMessages.GSS.Character.Event;
 using GameServer.Entities;
 
 namespace GameServer.Systems.MovementRelay;
@@ -13,7 +13,7 @@ public class MovementRelay
         _shard = shard;
     }
 
-    public void CharacterMovementInput(INetworkClient client, IEntity entity, AeroMessages.GSS.V66.Character.Command.MovementInput input)
+    public void CharacterMovementInput(INetworkClient client, IEntity entity, AeroMessages.GSS.Character.Command.MovementInput input)
     {
         var character = entity as Entities.Character.CharacterEntity;
 
@@ -73,7 +73,7 @@ public class MovementRelay
         // Forward update to remote clients
         var currentPose = new CurrentPoseUpdate
         {
-            Data = new AeroMessages.GSS.V66.CurrentPoseUpdateData
+            Data = new AeroMessages.GSS.CurrentPoseUpdateData
             {
                 Flags = 0x00,
                 ShortTime = character.MovementShortTime,
@@ -98,7 +98,7 @@ public class MovementRelay
         }
     }
 
-    public void VehicleMovementInput(INetworkClient client, IEntity entity, AeroMessages.GSS.V66.Vehicle.Command.MovementInput input)
+    public void VehicleMovementInput(INetworkClient client, IEntity entity, AeroMessages.GSS.Vehicle.Command.MovementInput input)
     {
         var vehicle = entity as Entities.Vehicle.VehicleEntity;
         vehicle.SetPoseData(input);
@@ -110,7 +110,7 @@ public class MovementRelay
         {
             var character = vehicle.ControllingPlayer.CharacterEntity;
             character.SetPosition(input.Position);
-            CharacterMovementInput(client, character, new AeroMessages.GSS.V66.Character.Command.MovementInput()
+            CharacterMovementInput(client, character, new AeroMessages.GSS.Character.Command.MovementInput()
             {
                 ShortTime = client.AssignedShard.CurrentShortTime,
                 PoseData = new MovementPoseData()

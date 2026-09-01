@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using AeroMessages.GSS.V66.Character;
+using AeroMessages.GSS.Character;
 using Data;
 using Records.dbcharacter;
 using Records.dbitems;

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Aero.Gen;
 using AeroMessages.Common;
-using AeroMessages.GSS.V66.Generic;
+using AeroMessages.GSS.Generic;
 
 namespace GameServer.Systems.Encounters;
 

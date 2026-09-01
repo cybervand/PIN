@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Numerics;
 using AeroMessages.Common;
-using AeroMessages.GSS.V66;
+using AeroMessages.GSS;
 using GameServer.Entities.Character;
 
 namespace GameServer.Systems.Aptitude;

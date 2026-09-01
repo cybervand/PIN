@@ -1,4 +1,4 @@
-﻿using AeroMessages.Matrix.V25;
+﻿using AeroMessages.Matrix;
 using GameServer.Entities.Character;
 using GameServer.StaticDB.Records.customdata;
 using GameServer.Test;

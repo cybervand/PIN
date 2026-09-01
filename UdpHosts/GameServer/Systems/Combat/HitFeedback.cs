@@ -1,6 +1,6 @@
 using AeroMessages.Common;
-using AeroMessages.GSS.V66;
-using AeroMessages.GSS.V66.Character.Event;
+using AeroMessages.GSS;
+using AeroMessages.GSS.Character.Event;
 using GameServer.Entities;
 using GameServer.Entities.Character;
 using GameServer.Entities.Deployable;

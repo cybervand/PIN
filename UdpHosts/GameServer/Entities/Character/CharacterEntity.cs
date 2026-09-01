@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using AeroMessages.Common;
-using AeroMessages.GSS.V66;
-using AeroMessages.GSS.V66.Character;
-using AeroMessages.GSS.V66.Character.Controller;
-using AeroMessages.GSS.V66.Character.View;
+using AeroMessages.GSS;
+using AeroMessages.GSS.Character;
+using AeroMessages.GSS.Character.Controller;
+using AeroMessages.GSS.Character.View;
 using BepuUtilities;
 using GameServer.Data;
 using GameServer.Entities.Deployable;
@@ -23,8 +23,8 @@ using GameServer.Systems.WeaponSim;
 using GameServer.Test;
 using GrpcGameServerAPIClient;
 using Serilog;
-using GibVisuals = AeroMessages.GSS.V66.Character.GibVisuals;
-using LoadoutVisualType = AeroMessages.GSS.V66.Character.LoadoutConfig_Visual.LoadoutVisualType;
+using GibVisuals = AeroMessages.GSS.Character.GibVisuals;
+using LoadoutVisualType = AeroMessages.GSS.Character.LoadoutConfig_Visual.LoadoutVisualType;
 
 namespace GameServer.Entities.Character;
 
@@ -1908,7 +1908,7 @@ public sealed partial class CharacterEntity : BaseAptitudeEntity, IAptitudeTarge
         };
         Character_MovementView = new MovementView
         {
-            MovementProp = new AeroMessages.GSS.V66.Character.MovementData
+            MovementProp = new AeroMessages.GSS.Character.MovementData
             {
                 Position = Position,
                 Rotation = Orientation,

@@ -1,7 +1,7 @@
 using System.Numerics;
 using AeroMessages.Common;
-using AeroMessages.GSS.V66;
-using AeroMessages.GSS.V66.CarryableObject.View;
+using AeroMessages.GSS;
+using AeroMessages.GSS.CarryableObject.View;
 using GameServer.Entities.Character;
 using GameServer.Systems.Aptitude;
 

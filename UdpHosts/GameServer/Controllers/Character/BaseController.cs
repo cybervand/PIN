@@ -1,27 +1,27 @@
 ﻿using System;
 using System.Numerics;
-using AeroMessages.GSS.V66;
-using AeroMessages.GSS.V66.Character;
-using AeroMessages.GSS.V66.Character.Command;
-using AeroMessages.GSS.V66.Character.Event;
+using Aero.Protocol;
+using AeroMessages.GSS;
+using AeroMessages.GSS.Character;
+using AeroMessages.GSS.Character.Command;
+using AeroMessages.GSS.Character.Event;
 using GameServer.Data;
 using GameServer.Entities;
 using GameServer.Entities.Character;
 using GameServer.Entities.Turret;
 using GameServer.Entities.Vehicle;
-using GameServer.Enums.GSS.Character;
 using GameServer.Extensions;
 using GameServer.Packets;
 using GameServer.StaticDB;
 using GameServer.StaticDB.Records.customdata;
 using GameServer.Systems.Encounters;
 using Serilog;
-using static AeroMessages.GSS.V66.Character.Command.NonDevDebugCommand;
-using LoadoutVisualType = AeroMessages.GSS.V66.Character.LoadoutConfig_Visual.LoadoutVisualType;
+using static AeroMessages.GSS.Character.Command.NonDevDebugCommand;
+using LoadoutVisualType = AeroMessages.GSS.Character.LoadoutConfig_Visual.LoadoutVisualType;
 
 namespace GameServer.Controllers.Character;
 
-[ControllerID(Enums.GSS.Controllers.Character_BaseController)]
+[Typecode(GssCharacterView.BaseController)]
 public class BaseController : Base
 {
     private ILogger _logger;
@@ -31,7 +31,7 @@ public class BaseController : Base
         _logger = logger.ForContext<CharacterEntity>();
     }
 
-    [MessageID((byte)Commands.FetchQueueInfo)]
+    [MessageID(GssCharacterCommand.FetchQueueInfo)]
     public void FetchQueueInfo(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var fetchQueueInfoResponse = new FetchQueueInfoResponse
@@ -116,13 +116,13 @@ public class BaseController : Base
         };
     }
 
-    [MessageID((byte)Commands.PlayerReady)]
+    [MessageID(GssCharacterCommand.PlayerReady)]
     public void PlayerReady(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         player.Ready();
     }
 
-    [MessageID((byte)Commands.MovementInput)]
+    [MessageID(GssCharacterCommand.MovementInput)]
     public void MovementInput(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         // ToDo: This currently only handles PosRotState inputs, logic needs to be added for the other MovementDataTypes
@@ -141,7 +141,7 @@ public class BaseController : Base
         client.AssignedShard.Movement.CharacterMovementInput(client, player.CharacterEntity, movementInput);
     }
 
-    [MessageID((byte)Commands.SetMovementSimulation)]
+    [MessageID(GssCharacterCommand.SetMovementSimulation)]
     public void SetMovementSimulation(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         // Dear client, thanks for informing us about how often you will update us.
@@ -151,7 +151,7 @@ public class BaseController : Base
         // LogMissingImplementation<BaseController>(nameof(SetMovementSimulation), entityId, packet, _logger);
     }
 
-    [MessageID((byte)Commands.BagInventorySettings)]
+    [MessageID(GssCharacterCommand.BagInventorySettings)]
     public void BagInventorySettings(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var bagInventoryUpdate = new BagInventoryUpdate
@@ -162,7 +162,7 @@ public class BaseController : Base
         client.NetChannels[ChannelType.ReliableGss].SendMessage(bagInventoryUpdate, player.CharacterEntity.EntityId);
     }
 
-    [MessageID((byte)Commands.SetSteamUserId)]
+    [MessageID(GssCharacterCommand.SetSteamUserId)]
     public void SetSteamUserId(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var setSteamIdPacket = packet.Unpack<SetSteamUserId>();
@@ -174,7 +174,7 @@ public class BaseController : Base
         // _logger.Verbose("Entity {0:x8} Steam user id (conventional): {1}", entityId, conventional.SteamId);
     }
 
-    [MessageID((byte)Commands.VehicleCalldownRequest)]
+    [MessageID(GssCharacterCommand.VehicleCalldownRequest)]
     public void VehicleCalldownRequest(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var vehicleCalldownRequest = packet.Unpack<VehicleCalldownRequest>();
@@ -188,7 +188,7 @@ public class BaseController : Base
         abilities.HandleVehicleCalldownRequest(character.EntityId, vehicleCalldownRequest);
     }
 
-    [MessageID((byte)Commands.DeployableCalldownRequest)]
+    [MessageID(GssCharacterCommand.DeployableCalldownRequest)]
     public void DeployableCalldownRequest(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var deployableCalldownRequest = packet.Unpack<DeployableCalldownRequest>();
@@ -202,7 +202,7 @@ public class BaseController : Base
         abilities.HandleDeployableCalldownRequest(character.EntityId, deployableCalldownRequest);
     }
 
-    [MessageID((byte)Commands.ResourceNodeBeaconCalldownRequest)]
+    [MessageID(GssCharacterCommand.ResourceNodeBeaconCalldownRequest)]
     public void ResourceNodeBeaconCalldownRequest(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var thumperCalldownRequest = packet.Unpack<ResourceNodeBeaconCalldownRequest>();
@@ -216,21 +216,21 @@ public class BaseController : Base
         abilities.HandleResourceNodeBeaconCalldownRequest(character.EntityId, thumperCalldownRequest);
     }
 
-    [MessageID((byte)Commands.SetEffectsFlag)]
+    [MessageID(GssCharacterCommand.SetEffectsFlag)]
     public void SetEffectsFlag(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var query = packet.Unpack<SetEffectsFlag>();
         player.CharacterEntity.SetEffectsFlags(query.Flashlight);
     }
 
-    [MessageID((byte)Commands.PerformEmote)]
+    [MessageID(GssCharacterCommand.PerformEmote)]
     public void PerformEmote(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var query = packet.Unpack<PerformEmote>();
         player.CharacterEntity.SetEmote(new EmoteData { Id = query.EmoteId, Time = query.Time });
     }
 
-    [MessageID((byte)Commands.ClientQueryInteractionStatus)]
+    [MessageID(GssCharacterCommand.ClientQueryInteractionStatus)]
     public void ClientQueryInteractionStatus(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var inquiringEntity = player.CharacterEntity;
@@ -265,7 +265,7 @@ public class BaseController : Base
         }
     }
 
-    [MessageID((byte)Commands.ResourceLocationInfosRequest)]
+    [MessageID(GssCharacterCommand.ResourceLocationInfosRequest)]
     public void ResourceLocationInfosRequest(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var resourceLocationInfosResponse = new ResourceLocationInfosResponse
@@ -277,7 +277,7 @@ public class BaseController : Base
         client.NetChannels[ChannelType.ReliableGss].SendMessage(resourceLocationInfosResponse, player.CharacterEntity.EntityId);
     }
 
-    [MessageID((byte)Commands.FriendsListRequest)]
+    [MessageID(GssCharacterCommand.FriendsListRequest)]
     public void FriendsListRequest(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var friendsListResponse = new FriendsListResponse
@@ -309,7 +309,7 @@ public class BaseController : Base
         client.NetChannels[ChannelType.ReliableGss].SendMessage(friendsListResponse, player.CharacterEntity.EntityId);
     }
 
-    [MessageID((byte)Commands.MapOpened)]
+    [MessageID(GssCharacterCommand.MapOpened)]
     public void MapOpened(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var mapOpened = new GeographicalReportResponse
@@ -323,7 +323,7 @@ public class BaseController : Base
         client.NetChannels[ChannelType.ReliableGss].SendMessage(mapOpened, player.CharacterEntity.EntityId);
     }
 
-    [MessageID((byte)Commands.RequestTeleport)]
+    [MessageID(GssCharacterCommand.RequestTeleport)]
     public void RequestTeleport(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var character = player.CharacterEntity;
@@ -359,7 +359,7 @@ public class BaseController : Base
         client.NetChannels[ChannelType.ReliableGss].SendMessage(forcedMove, character.EntityId);
     }
 
-    [MessageID((byte)Commands.ExitAttachmentRequest)]
+    [MessageID(GssCharacterCommand.ExitAttachmentRequest)]
     public void ExitAttachmentRequest(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         if (player.CharacterEntity.AttachedToEntity == null)
@@ -399,7 +399,7 @@ public class BaseController : Base
         }
     }
 
-    [MessageID((byte)Commands.SeatChangeRequest)]
+    [MessageID(GssCharacterCommand.SeatChangeRequest)]
     public void SeatChangeRequest(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         if (player.CharacterEntity.AttachedToEntity == null)
@@ -421,7 +421,7 @@ public class BaseController : Base
         }
     }
 
-    [MessageID((byte)Commands.SelectLoadout)]
+    [MessageID(GssCharacterCommand.SelectLoadout)]
     public void SelectLoadout(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var query = packet.Unpack<SelectLoadout>();
@@ -441,7 +441,7 @@ public class BaseController : Base
         }
     }
 
-    [MessageID((byte)Commands.PerformTextChat)]
+    [MessageID(GssCharacterCommand.PerformTextChat)]
     public void PerformTextChat(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var query = packet.Unpack<PerformTextChat>();
@@ -450,7 +450,7 @@ public class BaseController : Base
         shard.Chat.CharacterPerformTextChat(client, character, query);
     }
 
-    [MessageID((byte)Commands.SlotGearRequest)]
+    [MessageID(GssCharacterCommand.SlotGearRequest)]
     public void SlotGearRequest(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var request = packet.Unpack<SlotGearRequest>();
@@ -469,7 +469,7 @@ public class BaseController : Base
         client.NetChannels[ChannelType.ReliableGss].SendMessage(response, entityId);
     }
 
-    [MessageID((byte)Commands.SlotVisualRequest)]
+    [MessageID(GssCharacterCommand.SlotVisualRequest)]
     public void SlotVisualRequest(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var request = packet.Unpack<SlotVisualRequest>();
@@ -487,7 +487,7 @@ public class BaseController : Base
         client.NetChannels[ChannelType.ReliableGss].SendMessage(response, entityId);
     }
 
-    [MessageID((byte)Commands.NonDevDebugCommand)]
+    [MessageID(GssCharacterCommand.NonDevDebugCommand)]
     public void NonDevDebugCommand(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var request = packet.Unpack<NonDevDebugCommand>();
@@ -507,7 +507,7 @@ public class BaseController : Base
         }
     }
 
-    [MessageID((byte)Commands.UiQueryResponse)]
+    [MessageID(GssCharacterCommand.UiQueryResponse)]
     public void UiQueryResponse(INetworkClient client, IPlayer player, ulong entityId, GamePacket packet)
     {
         var response = packet.Unpack<UiQueryResponse>();

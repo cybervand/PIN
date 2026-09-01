@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using AeroMessages.GSS.V66;
+using AeroMessages.GSS;
 using GameServer.Entities.Character;
 using GameServer.Systems.Aptitude;
 
