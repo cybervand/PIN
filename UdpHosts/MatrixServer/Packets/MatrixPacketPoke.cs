@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Buffers.Binary;
+using System.Runtime.InteropServices;
 using System.Text;
 using Shared.Udp;
 
@@ -8,25 +9,32 @@ namespace MatrixServer.Packets;
 internal unsafe struct MatrixPacketPoke
 {
     public readonly uint SocketID;
-    private fixed byte type[4];
+    private fixed byte _type[4];
 
     public string Type
     {
         get
         {
-            fixed (byte* t = type)
+            fixed (byte* t = _type)
             {
                 return Deserializer.ReadFixedString(t, 4);
             }
         }
         set
         {
-            fixed (byte* t = type)
+            fixed (byte* t = _type)
             {
                 Serializer.WriteFixed(t, Encoding.ASCII.GetBytes(value[..4]));
             }
         }
     }
 
-    public readonly uint ProtocolVersion;
+    private readonly ushort _unkVersion;
+    private readonly ushort _protocolVersion;
+
+    public readonly ushort UnkVersion =>
+        BinaryPrimitives.ReverseEndianness(_protocolVersion);
+
+    public readonly ushort ProtocolVersion =>
+        BinaryPrimitives.ReverseEndianness(_protocolVersion);
 }

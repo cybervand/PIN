@@ -8,23 +8,25 @@ namespace MatrixServer.Packets;
 internal unsafe struct MatrixPacketAbrt
 {
     public readonly uint SocketID;
-    private fixed byte type[4];
+    private fixed byte _type[4];
 
     public string Type
     {
         get
         {
-            fixed (byte* t = type)
+            fixed (byte* t = _type)
             {
                 return Deserializer.ReadFixedString(t, 4);
             }
         }
         set
         {
-            fixed (byte* t = type)
+            fixed (byte* t = _type)
             {
                 Serializer.WriteFixed(t, Encoding.ASCII.GetBytes(value[..4]));
             }
         }
     }
+
+    public AbortCode Code;
 }

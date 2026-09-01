@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading;
+using Aero.Protocol;
 using MatrixServer.Packets;
 using Serilog;
 using Shared.Udp;
@@ -29,21 +30,40 @@ internal class MatrixServer : PacketServer
 
         switch (matrixPkt.Type)
         {
-            case "POKE": // POKE
-                Deserializer.ReadStruct<MatrixPacketPoke>(mem);
-                Logger.Verbose("[POKE]");
+            case "POKE":
                 var nextSocketId = GenerateSocketId();
-                Logger.Information("Assigning SocketID [" + nextSocketId + "] to [" + packet.RemoteEndpoint + "]");
+                Logger.Information("Assigning SocketID [{SocketID}] to [{RemoteEndpoint}]", nextSocketId, packet.RemoteEndpoint);
+
+                var poke = Deserializer.ReadStruct<MatrixPacketPoke>(mem);
+                var knownProtocol = ProtocolVersions.TryGetMatrixVersion(poke.ProtocolVersion, out var matrixVersion);
+                if (!knownProtocol)
+                {
+                    Logger.Warning("SocketID [{SocketID}] Unknown ProtocolVersion: {ProtocolVersion}", poke.SocketID, poke.ProtocolVersion);
+                }
+                else
+                {
+                    Logger.Information("SocketID [{SocketID}] Matrix Protocol {MatrixVersion} ({ProtocolVersion})", nextSocketId, matrixVersion, poke.ProtocolVersion);
+                }
+
                 _ = SendAsync(Serializer.WriteStruct(new MatrixPacketHehe(nextSocketId)), packet.RemoteEndpoint);
                 break;
-            case "KISS": // KISS
-                Deserializer.ReadStruct<MatrixPacketKiss>(mem);
-                Logger.Verbose("[KISS]");
+            case "KISS":
+                var kiss = Deserializer.ReadStruct<MatrixPacketKiss>(mem);
+                var knownStreamingProtocol = ProtocolVersions.TryGetGssVersion(kiss.StreamingProtocolVersion, out var gssVersion);
+                if (!knownStreamingProtocol)
+                {
+                    Logger.Warning("SocketID [{SocketID}] Unknown StreamingProtocolVersion {StreamingProtocolVersion}", kiss.ReceivedSocketID, kiss.StreamingProtocolVersion);
+                }
+                else
+                {
+                    Logger.Information("SocketID [{SocketID}] GSS Protocol {GssVersion} ({StreamingProtocolVersion})", kiss.ReceivedSocketID, gssVersion, kiss.StreamingProtocolVersion);
+                }
+
                 _ = SendAsync(Serializer.WriteStruct(new MatrixPacketHugg(1, 25001)), packet.RemoteEndpoint);
                 break;
-            case "ABRT": // ABRT
-                Deserializer.ReadStruct<MatrixPacketAbrt>(mem);
-                Logger.Verbose("[ABRT]");
+            case "ABRT":
+                var abrt = Deserializer.ReadStruct<MatrixPacketAbrt>(mem);
+                Logger.Information("Received abort with reason: {AbortCode}", abrt.Code);
                 break;
             default:
                 Logger.Error("Unknown Matrix Packet Type: " + matrixPkt.Type);
